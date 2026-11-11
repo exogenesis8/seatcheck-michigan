@@ -86,6 +86,21 @@ button.suggest{padding:4px 10px;margin:6px 6px 0 0}
 .evidence-list{padding-left:18px;margin:6px 0;font-size:13px}
 .evidence-list li{margin-bottom:6px}
 .evidence-list a{color:var(--brand)}
+.back-to-form,.jump-report{display:none}
+@media (max-width:960px){
+  #report,#formTop{scroll-margin-top:12px}
+  .back-to-form{display:inline-block;margin:0 0 10px;color:var(--brand);font-size:14px;font-weight:600;text-decoration:none}
+  .jump-report{display:flex;align-items:center;gap:10px;position:fixed;z-index:20;left:50%;transform:translateX(-50%);
+    bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:12px 18px;border-radius:999px;background:var(--brand);color:#fff;
+    font-weight:700;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap}
+  .jump-report[hidden]{display:none}
+  .jump-report:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .jump-badge{background:#fff;color:var(--bad);border-radius:999px;padding:2px 8px;font-size:12px}
+  .jump-badge.warn{color:var(--warn)}
+  .jump-badge.ok{color:var(--ok)}
+  footer{padding-bottom:96px}
+}
+@media (max-width:960px) and (prefers-color-scheme: dark){.jump-report{color:#0c1a24}.jump-badge{background:#0c1a24}}
 @media print{
   .evidence-list a::after,.official a::after{content:" (" attr(href) ")";font-weight:400;font-size:11px;word-break:break-all}
   header .profiles,.no-print,button{display:none!important}
@@ -111,7 +126,7 @@ button.suggest{padding:4px 10px;margin:6px 6px 0 0}
 </header>
 
 <main class="wrap">
-<div>
+<div id="formTop">
   <!-- 1. CHILD -->
   <section class="card">
     <h2><span class="num">1</span>Child</h2>
@@ -255,9 +270,15 @@ button.suggest{padding:4px 10px;margin:6px 6px 0 0}
     <h2 style="margin:0">Safety report</h2>
     <button type="button" class="ghost" onclick="window.print()" style="flex:0 0 auto">Print</button>
   </div>
-  <div id="reportBody"><p class="empty">Fill in the steps on the left. The report updates as you go.</p></div>
+  <a href="#formTop" class="back-to-form no-print">↑ Back to the form</a>
+  <div id="reportBody"><p class="empty">Fill in the steps. The report updates as you go.</p></div>
 </aside>
 </main>
+
+<!-- Phones: the report sits below a long form, so keep a way to reach it in view. -->
+<a href="#report" id="jumpReport" class="jump-report no-print">
+  <span>View safety report</span><span id="jumpBadge" class="jump-badge" hidden></span>
+</a>
 
 <footer class="wrap">
   This tool organizes public information from NHTSA and the State of Michigan. It is not a substitute for your car seat manual,
@@ -907,6 +928,13 @@ function render() {
   const bad = (all.match(/class="item bad"/g) || []).length, warn = (all.match(/class="item warn"/g) || []).length;
   const bar = (age != null || type || pos) ? `<div class="summary-bar">${bad ? `<span class="pill bad">${bad} to fix</span>` : ""}${warn ? `<span class="pill warn">${warn} to check</span>` : ""}${!bad && !warn ? '<span class="pill ok">No problems found so far</span>' : ""}</div>` : "";
   $("#reportBody").innerHTML = bar + all;
+  const badge = $("#jumpBadge");
+  if (badge) {
+    const started = age != null || type || pos;
+    badge.hidden = !started;
+    badge.className = "jump-badge " + (bad ? "bad" : warn ? "warn" : "ok");
+    badge.textContent = bad ? `${bad} to fix` : warn ? `${warn} to check` : "OK so far";
+  }
 }
 
 /* ---------------- research agent ---------------- */
@@ -1054,6 +1082,22 @@ $("#vMake").addEventListener("change", loadModels);
 $("#checkSeatRecalls").onclick = runSeatRecalls;
 $("#checkVehicleRecalls").onclick = () => { $("#vehicleRecallResults").innerHTML = ""; runVehicleRecalls(); };
 $("#decodeVin").onclick = decodeVin;
+
+/* ---------------- phones: jump between the form and the report ---------------- */
+(function reportJump() {
+  const btn = $("#jumpReport"), report = $("#report");
+  const go = (el) => (e) => {
+    e.preventDefault();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  };
+  btn.addEventListener("click", go(report));
+  document.querySelector(".back-to-form").addEventListener("click", go($("#formTop")));
+  // Hide the button while the report is already on screen.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(([e]) => { btn.hidden = e.isIntersecting; }, { threshold: 0.05 }).observe(report);
+  }
+})();
 
 apply(stored);
 refreshProfiles();
