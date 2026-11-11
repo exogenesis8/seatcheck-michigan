@@ -75,6 +75,7 @@ footer{color:var(--muted);font-size:12px;padding:0 16px 40px}
 .profiles{display:flex;gap:8px;align-items:center;margin-left:auto}
 .profiles select{width:auto;min-width:160px;background:#fff;color:#0f3d5c;border-color:#fff}
 .profiles button{background:#fff;color:#0f3d5c;border-color:#fff}
+button.suggest{padding:4px 10px;margin:6px 6px 0 0}
 .evidence{font-size:13px;padding:8px 10px;border-radius:8px;margin:8px 0;background:var(--info-bg);border:1px solid var(--line)}
 .evidence.ok{background:var(--ok-bg);border-color:var(--ok)}
 .evidence.warn{background:var(--warn-bg);border-color:var(--warn)}
@@ -534,28 +535,97 @@ async function loadMakes() {
   try { const d = await getJSON(`https://api.nhtsa.gov/products/vehicle/makes?modelYear=${y}&issueType=r`);
     $("#makeList").innerHTML = d.results.map((r) => `<option value="${esc(titleCase(r.make))}">`).join(""); } catch {}
 }
+/* Vehicle names: NHTSA's full model list (vPIC) is used to fix spellings such as "CRV" -> "CR-V".
+   The recall API only matches NHTSA's exact model name and returns 0 for anything else, which
+   would otherwise look like "no recalls". */
+const MAKE_ALIASES = { CHEVY: "Chevrolet", VW: "Volkswagen", MERCEDES: "Mercedes-Benz", MERCEDESBENZ: "Mercedes-Benz",
+  BENZ: "Mercedes-Benz", LANDROVER: "Land Rover", ALFA: "Alfa Romeo", ALFAROMEO: "Alfa Romeo", MINICOOPER: "Mini" };
+const fixMake = (m) => MAKE_ALIASES[norm(m)] || m;
+const modelListCache = {};
+async function vehicleModels(year, make) {
+  const key = `${year}|${norm(make)}`;
+  if (!modelListCache[key]) {
+    const d = await getJSON(`https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${encodeURIComponent(year)}?format=json`);
+    modelListCache[key] = [...new Set((d.Results || []).map((r) => r.Model_Name).filter(Boolean))].sort();
+  }
+  return modelListCache[key];
+}
+function editDistance(a, b) {
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0]; dp[0] = i;
+    for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; }
+  }
+  return dp[b.length];
+}
+function closeModels(typed, models) {
+  const t = norm(typed);
+  return models.map((m) => {
+    const n = norm(m);
+    const d = n.startsWith(t) || t.startsWith(n) ? 0.5 : n.includes(t) || t.includes(n) ? 1 : editDistance(t, n);
+    return { m, d };
+  }).filter((x) => x.d <= Math.max(1, Math.min(2, Math.floor(t.length / 3)))).sort((a, b) => a.d - b.d || a.m.length - b.m.length).slice(0, 6).map((x) => x.m);
+}
 async function loadModels() {
-  const y = val("vYear"), m = val("vMake"); if (!y || !m) return;
-  try { const d = await getJSON(`https://api.nhtsa.gov/products/vehicle/models?modelYear=${y}&make=${encodeURIComponent(m)}&issueType=r`);
-    $("#modelList").innerHTML = d.results.map((r) => `<option value="${esc(r.model)}">`).join(""); } catch {}
+  const y = val("vYear"), m = fixMake(val("vMake")); if (!y || !m) return;
+  try { $("#modelList").innerHTML = (await vehicleModels(y, m)).map((x) => `<option value="${esc(x)}">`).join(""); } catch {}
 }
 let vehicleRecallState = null;
 // Components that can affect a car seat install or a child passenger (not, e.g., driver airbags).
 const CHILD_RELEVANT = /SEAT ?BELT|CHILD|LATCH|TETHER|ANCHOR|^SEATS|OCCUPANT CLASS|AIR ?BAGS?:.*(PASSENGER|SIDE|CURTAIN)/i;
+// NHTSA answers HTTP 400 (with an empty list) when it has no recall record under that make/model
+// name: either the name is misspelled or the vehicle has never been recalled. Treat it as an empty
+// list here; runVehicleRecalls then checks NHTSA's model list to tell the two apart.
+async function recallsFor(y, mk, md) {
+  const r = await fetch(`https://api.nhtsa.gov/recalls/recallsByVehicle?make=${encodeURIComponent(mk)}&model=${encodeURIComponent(md)}&modelYear=${encodeURIComponent(y)}`);
+  if (r.status === 400) return [];
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return (await r.json()).results || [];
+}
 async function runVehicleRecalls() {
-  const y = val("vYear"), mk = val("vMake"), md = val("vModel");
+  const y = val("vYear"), typedMake = val("vMake"), typedModel = val("vModel");
   const out = $("#vehicleRecallResults"), btn = $("#checkVehicleRecalls");
-  if (!y || !mk || !md) { out.innerHTML = '<div class="item warn">Enter the model year, make and model (or a VIN).</div>'; return; }
+  if (!y || !typedMake || !typedModel) { out.innerHTML = '<div class="item warn">Enter the model year, make and model (or a VIN).</div>'; return; }
   btn.disabled = true;
+  out.querySelector("#vLoading")?.remove();
   out.insertAdjacentHTML("beforeend", '<p class="meta" id="vLoading">Checking NHTSA…</p>');
   try {
-    const d = await getJSON(`https://api.nhtsa.gov/recalls/recallsByVehicle?make=${encodeURIComponent(mk)}&model=${encodeURIComponent(md)}&modelYear=${encodeURIComponent(y)}`);
-    const list = d.results || [];
+    const mk = fixMake(typedMake);
+    let md = typedModel, note = "", modelConfirmed = false;
+    let list = await recallsFor(y, mk, md);
+    if (!list.length) {
+      // Zero results can mean "no recalls" or "NHTSA doesn't know that spelling". Find out which.
+      const models = await vehicleModels(y, mk).catch(() => null);
+      if (models && !models.length) {
+        vehicleRecallState = { unresolved: true, list: [], label: `${y} ${typedMake} ${typedModel}`, checkedAt: new Date(), suggestions: [] };
+        out.innerHTML = (out.querySelector(".item.ok")?.outerHTML || "") + `<div class="item warn"><b>NHTSA doesn't list the make "${esc(typedMake)}" for ${esc(y)}</b>Check the spelling of the make (for example "Chevrolet", not "Chevy") and the model year, or look up the VIN instead. Recalls were not checked.</div>`;
+        return;
+      }
+      if (models) {
+        const same = models.find((m) => norm(m) === norm(typedModel));
+        if (same) {
+          modelConfirmed = true;
+          if (same !== typedModel) { md = same; list = await recallsFor(y, mk, md); }
+          if (same.toUpperCase() !== typedModel.toUpperCase()) note = `Searched as "${same}", NHTSA's spelling.`;
+        } else {
+          const suggestions = closeModels(typedModel, models);
+          vehicleRecallState = { unresolved: true, list: [], label: `${y} ${mk} ${typedModel}`, checkedAt: new Date(), suggestions };
+          out.innerHTML = (out.querySelector(".item.ok")?.outerHTML || "") + `<div class="item warn"><b>NHTSA doesn't list a ${esc(y)} ${esc(mk)} "${esc(typedModel)}"</b>
+            ${suggestions.length ? `Did you mean: ${suggestions.map((s) => `<button type="button" class="ghost suggest" data-model="${esc(s)}">${esc(s)}</button>`).join(" ")}` : "Check the model name, or look up the VIN instead."}
+            <br>Recalls were not checked, so this is not a "no recalls" result.</div>`;
+          out.querySelectorAll("button.suggest").forEach((b) => b.onclick = () => { $("#vModel").value = b.dataset.model; if (mk !== typedMake) $("#vMake").value = mk; save(); runVehicleRecalls(); });
+          return;
+        }
+      }
+    } else if (mk !== typedMake) note = `Searched as "${mk}", NHTSA's name for this make.`;
+    if (mk !== typedMake) $("#vMake").value = mk;
+    if (md !== typedModel) $("#vModel").value = md;
+    save();
     vehicleRecallState = { list, label: `${y} ${mk} ${md}`, checkedAt: new Date() };
     let html = out.querySelector(".item.ok")?.outerHTML || "";
-    const stamp = `<div class="evidence ok"><b>✓ Live from NHTSA</b> on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}: NHTSA's recall system returned ${list.length} recall${list.length === 1 ? "" : "s"} for the ${esc(vehicleRecallState.label)}.</div>`;
+    const stamp = `<div class="evidence ok"><b>✓ Live from NHTSA</b> on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}: NHTSA's recall system returned ${list.length} recall${list.length === 1 ? "" : "s"} for the ${esc(vehicleRecallState.label)}.${note ? ` ${esc(note)}` : ""}</div>`;
     html += stamp;
-    if (!list.length) html += `<div class="item ok"><b>No NHTSA recalls found for ${esc(y)} ${esc(mk)} ${esc(md)}</b>If the model name doesn't match NHTSA's exactly, pick it from the Model suggestions. Use your VIN at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a> or <a href="https://www.checktoprotect.org/" target="_blank" rel="noopener">checktoprotect.org</a> to see if a recall is still open on your car.</div>`;
+    if (!list.length) html += `<div class="item ok"><b>No NHTSA recalls found for the ${esc(vehicleRecallState.label)}</b>${modelConfirmed ? "NHTSA lists this model and has no recalls on file for it." : "Couldn't double-check the model name with NHTSA, so make sure it's spelled the way it appears on the car or registration."} Use your VIN at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a> or <a href="https://www.checktoprotect.org/" target="_blank" rel="noopener">checktoprotect.org</a> to check your specific car.</div>`;
     else {
       const rel = list.filter((r) => CHILD_RELEVANT.test(r.Component));
       html += `<div class="item ${rel.length ? "bad" : "warn"}"><b>${list.length} recall${list.length > 1 ? "s" : ""} for this model${rel.length ? `, ${rel.length} affecting seats, belts, anchors or airbags` : ""}</b>This lists recalls for the model, not your car. Enter your VIN at nhtsa.gov/recalls or checktoprotect.org to see whether the repair was already done.</div>`;
@@ -774,7 +844,10 @@ function render() {
   if (s.length) out.push(`<h3>Car seat condition</h3>${s.map((x) => x.html).join("")}`);
 
   /* Vehicle */
-  if (vehicleRecallState) {
+  if (vehicleRecallState?.unresolved) {
+    out.push(`<h3>Vehicle</h3>` + item("warn", `Vehicle not found: ${esc(vehicleRecallState.label)}`,
+      `NHTSA doesn't list this vehicle, so recalls were not checked.${vehicleRecallState.suggestions.length ? ` Did you mean ${esc(vehicleRecallState.suggestions.slice(0, 3).join(", "))}?` : ""} Fix the model name or use the VIN.`).html);
+  } else if (vehicleRecallState) {
     const l = vehicleRecallState.list, rel = l.filter((r) => CHILD_RELEVANT.test(r.Component));
     out.push(`<h3>Vehicle</h3>` + (!l.length ? item("ok", `No recalls on file for the ${esc(vehicleRecallState.label)}`).html
       : item(rel.length ? "bad" : "warn", `${l.length} recall${l.length > 1 ? "s" : ""} for the ${esc(vehicleRecallState.label)}`,
@@ -801,7 +874,9 @@ function render() {
         <a href="${nhtsaUrl(e.c.campaign)}" target="_blank" rel="noopener">Official record</a></li>`);
     });
   }
-  if (vehicleRecallState) {
+  if (vehicleRecallState?.unresolved) {
+    ev.push(`<li>Vehicle: "${esc(vehicleRecallState.label)}" is not in NHTSA's vehicle list (checked ${esc(fmtDateTime(vehicleRecallState.checkedAt))}). Recalls were not checked.</li>`);
+  } else if (vehicleRecallState) {
     const l = vehicleRecallState.list;
     ev.push(`<li>Vehicle: ${l.length} recall${l.length === 1 ? "" : "s"} for the ${esc(vehicleRecallState.label)}, live from NHTSA on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}${l.length ? ":" : "."}
       ${l.map((r) => `<a href="${nhtsaUrl(r.NHTSACampaignNumber)}" target="_blank" rel="noopener">${esc(r.NHTSACampaignNumber)}</a>`).join(", ")}</li>`);
@@ -974,7 +1049,7 @@ document.addEventListener("input", (e) => {
   if (["vYear", "vMake", "vModel"].includes(e.target.id) && vehicleRecallState) { vehicleRecallState = null; }
   save(); render();
 });
-$("#vYear").addEventListener("change", loadMakes);
+$("#vYear").addEventListener("change", () => { loadMakes(); loadModels(); });
 $("#vMake").addEventListener("change", loadModels);
 $("#checkSeatRecalls").onclick = runSeatRecalls;
 $("#checkVehicleRecalls").onclick = () => { $("#vehicleRecallResults").innerHTML = ""; runVehicleRecalls(); };
