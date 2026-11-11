@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SeatCheck Michigan</title>
+<style>
+:root{
+  --bg:#f4f6f8; --card:#ffffff; --ink:#1b2430; --muted:#5d6b7a; --line:#dde3ea;
+  --brand:#0f5c8c; --brand-soft:#e6f0f7;
+  --ok:#1d7a46; --ok-bg:#e6f4ec; --warn:#9a5b00; --warn-bg:#fff4df; --bad:#b42318; --bad-bg:#fdecea; --info:#2f5f8a; --info-bg:#eaf2fa;
+  --radius:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#11161c;--card:#1a2129;--ink:#e6ebf0;--muted:#9aa7b4;--line:#2c3640;--brand:#5fb0e6;--brand-soft:#1b2c3a;
+  --ok:#5fd08e;--ok-bg:#16301f;--warn:#f2b24c;--warn-bg:#33270f;--bad:#ff8a7f;--bad-bg:#3a1714;--info:#8fc3ef;--info-bg:#172634;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--brand);color:#fff;padding:18px 16px}
+@media (prefers-color-scheme: dark){header{background:#0c3550}}
+header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{margin:0;font-size:22px;letter-spacing:.2px}
+header p{margin:2px 0 0;opacity:.85;font-size:14px}
+.wrap{max-width:1240px;margin:0 auto}
+main.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:20px;padding:20px 16px 60px}
+@media (max-width:960px){main.wrap{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px}
+.card h2{margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:10px}
+.card h2 .num{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:14px}
+@media (prefers-color-scheme: dark){.card h2 .num{color:#0c1a24}}
+.card .sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+input:focus,select:focus{outline:2px solid var(--brand);outline-offset:0;border-color:transparent}
+.check{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--ink);font-size:14px}
+.check input{width:auto}
+.hint{font-size:12px;color:var(--muted);margin-top:3px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:12px 0}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--brand);background:var(--brand);color:#fff;padding:9px 14px;font-weight:600}
+@media (prefers-color-scheme: dark){button{color:#0c1a24}}
+button.ghost{background:transparent;color:var(--brand)}
+button:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row > *{flex:1;min-width:150px}
+.row > button{flex:0 0 auto}
+fieldset{border:1px dashed var(--line);border-radius:10px;padding:12px;margin:14px 0 0}
+legend{font-size:13px;font-weight:700;color:var(--muted);padding:0 6px}
+.report{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto}
+@media (max-width:960px){.report{position:static;max-height:none}}
+.report h2{font-size:18px;margin:0 0 10px}
+.report h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 0 8px}
+.item{border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid;font-size:14px}
+.item b{display:block;margin-bottom:2px}
+.ok{background:var(--ok-bg);border-color:var(--ok)}
+.warn{background:var(--warn-bg);border-color:var(--warn)}
+.bad{background:var(--bad-bg);border-color:var(--bad)}
+.info{background:var(--info-bg);border-color:var(--info)}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.4px}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}.pill.info{color:var(--info)}
+.results{margin-top:12px}
+details.recall{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card)}
+details.recall summary{cursor:pointer;font-weight:600}
+details.recall p{margin:6px 0;font-size:14px}
+.meta{color:var(--muted);font-size:12px}
+ol.steps{padding-left:20px;margin:6px 0}
+ol.steps li{margin-bottom:6px}
+.links a{display:block;padding:7px 0;color:var(--brand);text-decoration:none;border-bottom:1px solid var(--line);font-size:14px}
+.links a:hover{text-decoration:underline}
+.summary-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.empty{color:var(--muted);font-size:14px}
+footer{color:var(--muted);font-size:12px;padding:0 16px 40px}
+.profiles{display:flex;gap:8px;align-items:center;margin-left:auto}
+.profiles select{width:auto;min-width:160px;background:#fff;color:#0f3d5c;border-color:#fff}
+.profiles button{background:#fff;color:#0f3d5c;border-color:#fff}
+@media print{
+  header .profiles,.no-print,button{display:none!important}
+  main.wrap{grid-template-columns:1fr}
+  .report{position:static;max-height:none}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <h1>SeatCheck Michigan</h1>
+      <p>Car seat recalls, expiration, Michigan law fit, and install guidance in one place.</p>
+    </div>
+    <div class="profiles">
+      <select id="profileSelect" aria-label="Saved children"><option value="">Saved children…</option></select>
+      <button type="button" id="saveProfile">Save</button>
+      <button type="button" id="newProfile">New</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+<div>
+  <!-- 1. CHILD -->
+  <section class="card">
+    <h2><span class="num">1</span>Child</h2>
+    <p class="sub">Age, weight and height decide which seat Michigan law allows.</p>
+    <div class="grid">
+      <div><label for="childName">Child's first name</label><input id="childName" data-save placeholder="e.g. Ava"></div>
+      <div><label for="dob">Date of birth</label><input id="dob" type="date" data-save></div>
+      <div><label for="weight">Weight (lb)</label><input id="weight" type="number" min="0" step="0.1" data-save></div>
+      <div><label for="height">Height (inches)</label><input id="height" type="number" min="0" step="0.1" data-save><div class="hint">4'9" = 57 in</div></div>
+    </div>
+    <div class="or">or, if you don't want to enter a birth date</div>
+    <div class="grid">
+      <div><label for="ageYears">Age (years)</label><input id="ageYears" type="number" min="0" max="18" data-save></div>
+      <div><label for="ageMonths">+ months</label><input id="ageMonths" type="number" min="0" max="11" data-save></div>
+    </div>
+  </section>
+
+  <!-- 2. CAR SEAT -->
+  <section class="card">
+    <h2><span class="num">2</span>Car seat</h2>
+    <p class="sub">Everything here is printed on the white label on the side, back or bottom of the seat (and on the base).</p>
+    <div class="grid">
+      <div><label for="seatType">Type of car seat</label>
+        <select id="seatType" data-save>
+          <option value="">Choose…</option>
+          <option value="infant_base">Infant seat with detachable base</option>
+          <option value="infant_nobase">Infant seat without base</option>
+          <option value="base_only">Detachable base only</option>
+          <option value="convertible_rf">Rear-facing convertible</option>
+          <option value="ff_harness">Forward-facing with harness</option>
+          <option value="hb_booster">High-back booster</option>
+          <option value="backless">Backless booster</option>
+          <option value="adaptive">Adaptive / special needs restraint</option>
+          <option value="vest">Harness vest</option>
+        </select>
+      </div>
+      <div><label for="seatBrand">Brand</label><input id="seatBrand" list="brandList" data-save placeholder="e.g. Graco"><datalist id="brandList"></datalist></div>
+      <div><label for="seatModel">Model name</label><input id="seatModel" data-save placeholder="e.g. SnugRide 35"></div>
+      <div><label for="seatModelNo">Model number</label><input id="seatModelNo" data-save placeholder="from label"></div>
+      <div><label for="seatSerial">Serial number</label><input id="seatSerial" data-save placeholder="from label"></div>
+      <div><label for="mfgDate">Date of manufacture</label><input id="mfgDate" type="date" data-save></div>
+    </div>
+
+    <fieldset>
+      <legend>Expiration</legend>
+      <div class="grid">
+        <div><label for="expDate">"Do not use after" date on label</label><input id="expDate" type="date" data-save></div>
+        <div><label for="lifeYears">Or: useful life (years)</label><input id="lifeYears" type="number" min="1" max="15" data-save><div class="hint">From label or manual, counted from manufacture date</div></div>
+      </div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="crashed" data-save> This seat has been in a crash</label>
+      <label class="check"><input type="checkbox" id="registered" data-save> Seat is registered with the manufacturer (so you get recall notices)</label>
+    </fieldset>
+
+    <fieldset id="limitsBox">
+      <legend>Seat limits (optional, from label — makes the fit check exact)</legend>
+      <div class="grid" id="limitsGrid"></div>
+      <div class="grid" style="margin-top:12px">
+        <div><label for="seatWeight">Weight of the seat itself (lb)</label><input id="seatWeight" type="number" min="0" step="0.1" data-save><div class="hint">Used for the lower-anchor (LATCH) weight limit</div></div>
+      </div>
+    </fieldset>
+
+    <div class="row no-print" style="margin-top:14px">
+      <button type="button" id="checkSeatRecalls">Check car seat recalls</button>
+    </div>
+    <div id="seatRecallResults" class="results"></div>
+  </section>
+
+  <!-- 3. VEHICLE -->
+  <section class="card">
+    <h2><span class="num">3</span>Vehicle &amp; seating position</h2>
+    <p class="sub">Enter the VIN (driver-side dashboard or door jamb) or choose year, make and model.</p>
+    <div class="row">
+      <div><label for="vin">VIN</label><input id="vin" maxlength="17" data-save placeholder="17 characters"></div>
+      <button type="button" id="decodeVin" class="ghost">Look up VIN</button>
+    </div>
+    <div class="or">or</div>
+    <div class="grid">
+      <div><label for="vYear">Model year</label><select id="vYear" data-save></select></div>
+      <div><label for="vMake">Make</label><input id="vMake" list="makeList" data-save placeholder="e.g. Honda"><datalist id="makeList"></datalist></div>
+      <div><label for="vModel">Model</label><input id="vModel" list="modelList" data-save placeholder="e.g. CR-V"><datalist id="modelList"></datalist></div>
+    </div>
+
+    <fieldset>
+      <legend>Where will the car seat go?</legend>
+      <div class="grid">
+        <div><label for="position">Seating position</label>
+          <select id="position" data-save>
+            <option value="">Choose…</option>
+            <option value="r2_driver">2nd row – behind driver</option>
+            <option value="r2_center">2nd row – center</option>
+            <option value="r2_pass">2nd row – passenger side</option>
+            <option value="r3_driver">3rd row – driver side</option>
+            <option value="r3_center">3rd row – center</option>
+            <option value="r3_pass">3rd row – passenger side</option>
+            <option value="front">Front passenger seat</option>
+          </select>
+        </div>
+        <div><label for="installMethod">Install method</label>
+          <select id="installMethod" data-save>
+            <option value="">Choose…</option>
+            <option value="latch">Lower anchors (LATCH)</option>
+            <option value="belt">Vehicle seat belt</option>
+            <option value="booster_belt">Booster with lap &amp; shoulder belt</option>
+          </select>
+        </div>
+        <div><label for="lowerAnchors">Lower anchors at this spot?</label>
+          <select id="lowerAnchors" data-save><option value="unknown">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+        <div><label for="tetherAnchor">Top tether anchor at this spot?</label>
+          <select id="tetherAnchor" data-save><option value="unknown">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="check"><input type="checkbox" id="hasRear" data-save checked> Vehicle has a back seat</label>
+        <label class="check"><input type="checkbox" id="tetherUsed" data-save> Top tether is attached (forward-facing seats)</label>
+        <label class="check"><input type="checkbox" id="airbagOff" data-save> Front passenger airbag is turned OFF (only matters for the front seat)</label>
+      </div>
+    </fieldset>
+
+    <div class="row no-print" style="margin-top:14px">
+      <button type="button" id="checkVehicleRecalls">Check vehicle recalls</button>
+    </div>
+    <div id="vehicleRecallResults" class="results"></div>
+  </section>
+
+  <!-- 4. RESEARCH AGENT -->
+  <section class="card" id="agentCard">
+    <h2><span class="num">4</span>Research agent</h2>
+    <p class="sub">An AI agent reads the manufacturer's site, the car seat manual, and the vehicle owner's manual, then reports exact limits, expiration rules, anchor locations, and install steps, each with its source. It takes 1–3 minutes.</p>
+    <div id="agentOffline" class="item info" hidden><b>Agent not available</b>Start the app with <code>.venv/bin/python server.py</code> (see README) to turn on the research agent.</div>
+    <div class="row no-print" id="agentControls">
+      <button type="button" id="runAgent">Research this seat &amp; vehicle</button>
+    </div>
+    <p class="hint">Sends the seat brand, model, model number and manufacture date, the vehicle, the seating position, and the child's age, weight and height. The child's name and the seat's serial number are not sent.</p>
+    <div id="agentLog" class="meta" aria-live="polite"></div>
+    <div id="agentResults" class="results"></div>
+  </section>
+</div>
+
+<!-- REPORT -->
+<aside class="card report" id="report" aria-live="polite">
+  <div class="row no-print" style="justify-content:space-between;margin-bottom:6px">
+    <h2 style="margin:0">Safety report</h2>
+    <button type="button" class="ghost" onclick="window.print()" style="flex:0 0 auto">Print</button>
+  </div>
+  <div id="reportBody"><p class="empty">Fill in the steps on the left. The report updates as you go.</p></div>
+</aside>
+</main>
+
+<footer class="wrap">
+  This tool organizes public information from NHTSA and the State of Michigan. It is not a substitute for your car seat manual,
+  your vehicle owner's manual, or a check by a certified Child Passenger Safety Technician (CPST). Car seat recall data:
+  NHTSA recall file, updated <span id="dataDate"></span>. Vehicle recalls are fetched live from NHTSA.
+</footer>
+
+<script src="data/carseat-recalls.js"></script>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const val = (id) => { const el = document.getElementById(id); return el.type === "checkbox" ? el.checked : el.value.trim(); };
+const num = (id) => { const v = parseFloat(val(id)); return Number.isFinite(v) ? v : null; };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const RECALLS = window.CARSEAT_RECALLS || [];
+$("#dataDate").textContent = window.CARSEAT_RECALLS_UPDATED || "unknown";
+
+/* ---------------- reference data ---------------- */
+const SEAT_TYPES = {
+  infant_base:   { label: "Infant seat with detachable base", mode: "rf" },
+  infant_nobase: { label: "Infant seat without base", mode: "rf" },
+  base_only:     { label: "Detachable base only", mode: "rf" },
+  convertible_rf:{ label: "Rear-facing convertible", mode: "rf" },
+  ff_harness:    { label: "Forward-facing with harness", mode: "ff" },
+  hb_booster:    { label: "High-back booster", mode: "booster" },
+  backless:      { label: "Backless booster", mode: "booster" },
+  adaptive:      { label: "Adaptive / special needs restraint", mode: "special" },
+  vest:          { label: "Harness vest", mode: "ff" },
+};
+// Typical label limits, used only when the parent hasn't entered the seat's own limits.
+const TYPICAL = {
+  infant_base:   { minW: 4, maxW: 35, maxH: 32 },
+  infant_nobase: { minW: 4, maxW: 35, maxH: 32 },
+  base_only:     { minW: 4, maxW: 35, maxH: 32 },
+  convertible_rf:{ minW: 5, maxW: 40, maxH: 43 },
+  ff_harness:    { minW: 22, maxW: 65, maxH: 49 },
+  vest:          { minW: 22, maxW: 65, maxH: 52 },
+  hb_booster:    { minW: 40, maxW: 100, maxH: 57 },
+  backless:      { minW: 40, maxW: 110, maxH: 57 },
+};
+const BRAND_SITES = {
+  "GRACO":"https://www.gracobaby.com", "BRITAX":"https://us.britax.com", "CHICCO":"https://www.chiccousa.com",
+  "EVENFLO":"https://www.evenflo.com", "MAXI-COSI":"https://www.maxi-cosi.com", "SAFETY 1ST":"https://www.safety1st.com",
+  "COSCO":"https://www.coscokids.com", "CYBEX":"https://www.cybex-online.com", "NUNA":"https://nunababy.com",
+  "CLEK":"https://clekinc.com", "DIONO":"https://us.diono.com", "UPPABABY":"https://uppababy.com",
+  "BABY TREND":"https://babytrend.com", "PEG PEREGO":"https://www.pegperego.com", "JOIE":"https://us.joiebaby.com",
+  "COMBI":"https://www.combiusa.com", "DOONA":"https://doona.com", "4MOMS":"https://4moms.com", "BABY JOGGER":"https://www.babyjogger.com",
+};
+// Dorel Juvenile Group files recalls as "DJG" for several of its brands.
+const BRAND_ALIASES = { "SAFETY1ST":["DJG","DOREL"], "MAXICOSI":["DJG","DOREL"], "COSCO":["DJG","DOREL"], "DISNEYBABY":["DJG"], "EDDIEBAUER":["DJG"] };
+
+const POSITIONS = {
+  r2_driver:"2nd row, behind driver", r2_center:"2nd row, center", r2_pass:"2nd row, passenger side",
+  r3_driver:"3rd row, driver side", r3_center:"3rd row, center", r3_pass:"3rd row, passenger side", front:"front passenger seat",
+};
+
+/* ---------------- brand list + year list ---------------- */
+(function initLists() {
+  const brands = new Set(Object.keys(BRAND_SITES));
+  RECALLS.forEach((c) => c.products.forEach((p) => p.make && p.make !== "DJG" && brands.add(p.make)));
+  $("#brandList").innerHTML = [...brands].sort().map((b) => `<option value="${esc(titleCase(b))}">`).join("");
+  const thisYear = new Date().getFullYear();
+  let opts = '<option value="">Year…</option>';
+  for (let y = thisYear + 1; y >= 1995; y--) opts += `<option>${y}</option>`;
+  $("#vYear").innerHTML = opts;
+})();
+function titleCase(s) { return s.length <= 4 && /^[A-Z0-9-]+$/.test(s) && s !== "NUNA" && s !== "CLEK" ? s : s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase()); }
+
+/* ---------------- child age + Michigan law ---------------- */
+function childAge() {
+  const dob = val("dob");
+  if (dob) {
+    const d = new Date(dob + "T00:00:00"), now = new Date();
+    if (!isNaN(d)) return (now - d) / (365.25 * 864e5);
+  }
+  const y = num("ageYears"), m = num("ageMonths");
+  if (y == null && m == null) return null;
+  return (y || 0) + (m || 0) / 12;
+}
+function fmtAge(a) {
+  if (a == null) return "";
+  const y = Math.floor(a), m = Math.floor((a - y) * 12);
+  return y ? `${y} yr${y > 1 ? "s" : ""}${m ? ` ${m} mo` : ""}` : `${m} months`;
+}
+function limitsFor(type) {
+  const t = TYPICAL[type] || {};
+  const read = (id, fallback) => { const v = num(id); return { v: v ?? fallback, entered: v != null }; };
+  return { minW: read("limMinW", t.minW), maxW: read("limMaxW", t.maxW), maxH: read("limMaxH", t.maxH) };
+}
+
+function michiganStage(age, h) {
+  if (age == null) return null;
+  if (age < 2) return { key: "rf", title: "Rear-facing car seat",
+    text: "Michigan law: a child must ride rear-facing until age 2, or until they reach the rear-facing weight or height limit set by the seat's manufacturer." };
+  if (age < 5) return { key: "harness", title: "Car seat with a 5-point harness (rear- or forward-facing)",
+    text: "Michigan law: after rear-facing, a child rides in a forward-facing seat with an internal 5-point harness until age 5, or until they reach the harness weight or height limit. Staying rear-facing longer, up to the seat's limits, is safer." };
+  if (age < 8 && (h == null || h < 57)) return { key: "booster", title: "Belt-positioning booster (or harness seat if still within its limits)",
+    text: "Michigan law: a child rides in a belt-positioning booster with a lap-and-shoulder belt until they are 4'9\" (57 in) tall or 8 years old." };
+  return { key: "belt", title: "Seat belt, if the belt fits — otherwise keep using a booster",
+    text: "Michigan law no longer requires a booster at 8 years old or 4'9\". Use the 5-step test below before switching to the seat belt alone." };
+}
+
+/* ---------------- expiration ---------------- */
+function addYears(dateStr, yrs) { const d = new Date(dateStr + "T00:00:00"); d.setMonth(d.getMonth() + Math.round(yrs * 12)); return d; }
+const fmtDate = (d) => d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+function expiration() {
+  const exp = val("expDate"), mfg = val("mfgDate"), life = num("lifeYears");
+  if (exp) return { date: new Date(exp + "T00:00:00"), source: "printed on label" };
+  if (mfg && life) return { date: addYears(mfg, life), source: `${life} years from manufacture date` };
+  if (mfg) return { range: [addYears(mfg, 6), addYears(mfg, 10)] };
+  return null;
+}
+
+/* ---------------- car seat recall matching ---------------- */
+function brandKeys(brand) {
+  const b = norm(brand);
+  return [b, ...(BRAND_ALIASES[b] || [])];
+}
+function matchSeatRecalls() {
+  const brand = val("seatBrand"), model = val("seatModel"), modelNo = val("seatModelNo"), mfg = val("mfgDate");
+  if (!brand) return { error: "Enter the car seat brand first." };
+  const keys = brandKeys(brand);
+  const modelTokens = model.toUpperCase().split(/[^A-Z0-9]+/).filter((t) => t.length >= 2);
+  const nModel = norm(model), nNo = norm(modelNo);
+  const brandHits = [], likely = [];
+  for (const c of RECALLS) {
+    const prods = c.products.filter((p) => keys.some((k) => norm(p.make).includes(k) || k.includes(norm(p.make))) ||
+      norm(c.manufacturer).includes(norm(brand)));
+    if (!prods.length) continue;
+    let best = null;
+    for (const p of prods) {
+      const pm = norm(p.model);
+      let score = 0;
+      if (nNo && nNo.length >= 4 && (pm.includes(nNo) || nNo.includes(pm))) score = 3;
+      else if (nModel && nModel.length >= 3 && (pm.includes(nModel) || nModel.includes(pm))) score = 2;
+      else if (modelTokens.length && modelTokens.every((t) => (p.model.toUpperCase() + " " + c.summary.toUpperCase()).includes(t))) score = 1;
+      if (score && (!best || score > best.score)) best = { score, p };
+    }
+    const entry = { c, prods, best };
+    if (best) {
+      if (mfg && best.p.mfgStart && best.p.mfgEnd) entry.dateIn = mfg >= best.p.mfgStart && mfg <= best.p.mfgEnd;
+      likely.push(entry);
+    } else brandHits.push(entry);
+  }
+  likely.sort((a, b) => (b.best.score - a.best.score) || ((b.dateIn ? 1 : 0) - (a.dateIn ? 1 : 0)));
+  return { likely, brandHits };
+}
+function recallCard(c, extra = "", open = false) {
+  const models = [...new Set(c.products.map((p) => p.model + (p.mfgStart ? ` (made ${p.mfgStart} to ${p.mfgEnd})` : "")))];
+  return `<details class="recall"${open ? " open" : ""}><summary>${esc(c.campaign)} · ${esc(c.component.toLowerCase())} ${extra}</summary>
+    <div class="meta">Reported ${esc(c.reported)} by ${esc(c.manufacturer)}${c.unitsAffected ? ` · ${c.unitsAffected.toLocaleString()} units` : ""}</div>
+    <p><b>Problem:</b> ${esc(c.summary)}</p>
+    ${c.consequence ? `<p><b>Risk:</b> ${esc(c.consequence)}</p>` : ""}
+    ${c.remedy ? `<p><b>Fix:</b> ${esc(c.remedy)}</p>` : ""}
+    <p class="meta">Affected models: ${esc(models.slice(0, 12).join("; "))}${models.length > 12 ? ` … and ${models.length - 12} more` : ""}</p>
+    <p><a href="https://www.nhtsa.gov/recalls?nhtsaId=${encodeURIComponent(c.campaign)}" target="_blank" rel="noopener">Open on NHTSA.gov</a></p>
+  </details>`;
+}
+let seatRecallState = null;
+function runSeatRecalls() {
+  const r = matchSeatRecalls();
+  const box = $("#seatRecallResults");
+  if (r.error) { box.innerHTML = `<div class="item warn">${esc(r.error)}</div>`; seatRecallState = null; render(); return; }
+  seatRecallState = r;
+  let html = "";
+  if (r.likely.length) {
+    html += `<div class="item warn"><b>${r.likely.length} recall${r.likely.length > 1 ? "s" : ""} may match this seat</b>Compare the model number and manufacture date on your label with each recall below.</div>`;
+    html += r.likely.map((e) => recallCard(e.c,
+      e.dateIn === true ? '<span class="pill bad">date in range</span>' : e.dateIn === false ? '<span class="pill ok">date outside range</span>' : '<span class="pill warn">check date</span>',
+      e.dateIn !== false)).join("");
+  } else {
+    html += `<div class="item ok"><b>No matching car seat recall found</b>Searched ${RECALLS.length} NHTSA car seat recall campaigns since 2010 for "${esc(val("seatBrand"))} ${esc(val("seatModel"))}". Confirm with the manufacturer using your serial number.</div>`;
+  }
+  if (r.brandHits.length) html += `<details class="recall"><summary>Other ${esc(val("seatBrand"))} recalls (${r.brandHits.length}) — probably not your model</summary>${r.brandHits.map((e) => recallCard(e.c)).join("")}</details>`;
+  box.innerHTML = html;
+  render();
+}
+
+/* ---------------- vehicle: VIN, makes/models, recalls ---------------- */
+async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
+async function decodeVin() {
+  const vin = val("vin").toUpperCase();
+  const btn = $("#decodeVin"), out = $("#vehicleRecallResults");
+  if (vin.length !== 17) { out.innerHTML = '<div class="item warn">A VIN is 17 characters.</div>'; return; }
+  btn.disabled = true;
+  try {
+    const d = await getJSON(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${encodeURIComponent(vin)}?format=json`);
+    const v = d.Results[0];
+    if (!v.Make) throw new Error(v.ErrorText || "VIN not recognized");
+    $("#vYear").value = v.ModelYear; $("#vMake").value = titleCase(v.Make); $("#vModel").value = v.Model;
+    out.innerHTML = `<div class="item ok"><b>${esc(v.ModelYear)} ${esc(titleCase(v.Make))} ${esc(v.Model)}${v.Trim ? " " + esc(v.Trim) : ""}</b>${esc(v.BodyClass || "")}${v.Seats ? ` · ${esc(v.Seats)} seats` : ""}${v.SeatRows ? ` · ${esc(v.SeatRows)} rows` : ""}</div>`;
+    save(); render();
+    await runVehicleRecalls();
+  } catch (e) { out.innerHTML = `<div class="item bad"><b>Couldn't decode VIN</b>${esc(e.message)}</div>`; }
+  finally { btn.disabled = false; }
+}
+async function loadMakes() {
+  const y = val("vYear"); if (!y) return;
+  try { const d = await getJSON(`https://api.nhtsa.gov/products/vehicle/makes?modelYear=${y}&issueType=r`);
+    $("#makeList").innerHTML = d.results.map((r) => `<option value="${esc(titleCase(r.make))}">`).join(""); } catch {}
+}
+async function loadModels() {
+  const y = val("vYear"), m = val("vMake"); if (!y || !m) return;
+  try { const d = await getJSON(`https://api.nhtsa.gov/products/vehicle/models?modelYear=${y}&make=${encodeURIComponent(m)}&issueType=r`);
+    $("#modelList").innerHTML = d.results.map((r) => `<option value="${esc(r.model)}">`).join(""); } catch {}
+}
+let vehicleRecallState = null;
+// Components that can affect a car seat install or a child passenger (not, e.g., driver airbags).
+const CHILD_RELEVANT = /SEAT ?BELT|CHILD|LATCH|TETHER|ANCHOR|^SEATS|OCCUPANT CLASS|AIR ?BAGS?:.*(PASSENGER|SIDE|CURTAIN)/i;
+async function runVehicleRecalls() {
+  const y = val("vYear"), mk = val("vMake"), md = val("vModel");
+  const out = $("#vehicleRecallResults"), btn = $("#checkVehicleRecalls");
+  if (!y || !mk || !md) { out.innerHTML = '<div class="item warn">Enter the model year, make and model (or a VIN).</div>'; return; }
+  btn.disabled = true;
+  out.insertAdjacentHTML("beforeend", '<p class="meta" id="vLoading">Checking NHTSA…</p>');
+  try {
+    const d = await getJSON(`https://api.nhtsa.gov/recalls/recallsByVehicle?make=${encodeURIComponent(mk)}&model=${encodeURIComponent(md)}&modelYear=${encodeURIComponent(y)}`);
+    const list = d.results || [];
+    vehicleRecallState = { list, label: `${y} ${mk} ${md}` };
+    let html = out.querySelector(".item.ok")?.outerHTML || "";
+    if (!list.length) html += `<div class="item ok"><b>No NHTSA recalls found for ${esc(y)} ${esc(mk)} ${esc(md)}</b>If the model name doesn't match NHTSA's exactly, pick it from the Model suggestions. Use your VIN at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a> or <a href="https://www.checktoprotect.org/" target="_blank" rel="noopener">checktoprotect.org</a> to see if a recall is still open on your car.</div>`;
+    else {
+      const rel = list.filter((r) => CHILD_RELEVANT.test(r.Component));
+      html += `<div class="item ${rel.length ? "bad" : "warn"}"><b>${list.length} recall${list.length > 1 ? "s" : ""} for this model${rel.length ? `, ${rel.length} affecting seats, belts, anchors or airbags` : ""}</b>This lists recalls for the model, not your car. Enter your VIN at nhtsa.gov/recalls or checktoprotect.org to see whether the repair was already done.</div>`;
+      const sorted = [...list].sort((a, b) => (CHILD_RELEVANT.test(b.Component) ? 1 : 0) - (CHILD_RELEVANT.test(a.Component) ? 1 : 0));
+      html += sorted.map((r) => `<details class="recall"${CHILD_RELEVANT.test(r.Component) ? " open" : ""}><summary>${esc(r.NHTSACampaignNumber)} · ${esc(r.Component.toLowerCase())}
+          ${CHILD_RELEVANT.test(r.Component) ? '<span class="pill bad">seats / belts / airbags</span>' : ""}${r.parkIt ? '<span class="pill bad">do not drive</span>' : ""}${r.parkOutSide ? '<span class="pill bad">park outside</span>' : ""}</summary>
+        <div class="meta">Reported ${esc(r.ReportReceivedDate)} · ${esc(r.Manufacturer)}</div>
+        <p><b>Problem:</b> ${esc(r.Summary)}</p>${r.Consequence ? `<p><b>Risk:</b> ${esc(r.Consequence)}</p>` : ""}${r.Remedy ? `<p><b>Fix:</b> ${esc(r.Remedy)}</p>` : ""}</details>`).join("");
+    }
+    out.innerHTML = html;
+  } catch (e) {
+    vehicleRecallState = null;
+    out.innerHTML = `<div class="item bad"><b>Couldn't reach NHTSA</b>${esc(e.message)}. Check your internet connection and try again.</div>`;
+  } finally { btn.disabled = false; render(); }
+}
+
+/* ---------------- seat limit fields (depend on seat type) ---------------- */
+function renderLimitFields() {
+  const type = val("seatType"), t = TYPICAL[type];
+  const grid = $("#limitsGrid");
+  if (!t) { grid.innerHTML = '<p class="empty" style="margin:0">Choose a seat type to see its limits.</p>'; return; }
+  const mode = SEAT_TYPES[type].mode;
+  const word = mode === "rf" ? "Rear-facing" : mode === "ff" ? "Harness" : "Booster";
+  const keep = (id) => (document.getElementById(id)?.value ?? stored[id] ?? "");
+  grid.innerHTML = `
+    <div><label for="limMinW">${word} min weight (lb)</label><input id="limMinW" type="number" data-save placeholder="typical ${t.minW}" value="${esc(keep("limMinW"))}"></div>
+    <div><label for="limMaxW">${word} max weight (lb)</label><input id="limMaxW" type="number" data-save placeholder="typical ${t.maxW}" value="${esc(keep("limMaxW"))}"></div>
+    <div><label for="limMaxH">${word} max height (in)</label><input id="limMaxH" type="number" data-save placeholder="typical ${t.maxH}" value="${esc(keep("limMaxH"))}"></div>`;
+}
+
+/* ---------------- install guidance ---------------- */
+function installSteps(type, method, pos, mode) {
+  const s = [];
+  const common = ["Read the car seat manual and the car-seat section of your vehicle owner's manual before installing. Where they disagree, ask a CPST."];
+  if (mode === "rf" || mode === "ff") {
+    if (method === "latch") s.push("Find the lower anchors in the seat crease (look for the small circle symbol). Clip both lower-anchor connectors on, then press the seat down and back while pulling the strap tight.");
+    else if (method === "belt") s.push(`Route the vehicle belt through the ${mode === "rf" ? "rear-facing" : "forward-facing"} belt path shown on the seat's labels, buckle it, then lock the belt (pull it all the way out until it ratchets, or use the seat's built-in lock-off) and tighten.`);
+    else s.push("Choose lower anchors OR the seat belt. Do not use both at once unless your car seat manual says you can.");
+    s.push("Test it: grip the seat at the belt path and tug side to side and front to back. It should move less than 1 inch.");
+  }
+  switch (type) {
+    case "infant_base":
+      s.unshift("Install the base first (steps below), then click the carrier into the base and tug up on the carrier to make sure it is locked.");
+      s.push("Check the recline/level indicator on the base: it must be in the allowed zone for your baby's weight. Adjust the base's recline foot, not a towel, unless the manual allows a rolled towel or noodle.");
+      s.push("Put the carry handle in the position the manual requires for riding in the car.");
+      break;
+    case "infant_nobase":
+      s.unshift("Without the base, use the vehicle seat belt (\"baseless\" or \"European\" routing if your seat allows it).");
+      s.push("Lap belt goes through the hook-shaped guides near the baby's hips. If your seat allows European routing, wrap the shoulder belt around the back of the carrier through the rear guide.");
+      s.push("Check the level line on the side of the carrier is parallel to the ground.");
+      break;
+    case "base_only":
+      s.unshift("A base alone is not a car seat. Only use it with the carrier models listed on the base label, and check the base's own expiration date and recalls (they can differ from the carrier's).");
+      s.push("Check the base's recline indicator is in the allowed zone.");
+      break;
+    case "convertible_rf":
+      s.push("Use the rear-facing recline setting and confirm the angle indicator is in the rear-facing range.");
+      s.push("Do not attach the top tether when rear-facing unless your car seat manual specifically allows it.");
+      s.push("Check whether your seat may touch the front vehicle seat. Your car seat manual says whether that's allowed.");
+      break;
+    case "ff_harness":
+    case "vest":
+      s.push("Always attach the top tether to the tether anchor (check the owner's manual for its location — often the back of the vehicle seat, rear shelf, or floor) and pull it snug.");
+      s.push("Set the seat to its forward-facing recline position.");
+      if (type === "vest") s.push("Harness vests have their own install steps (often a tether and a specific belt routing). Follow the vest manual exactly.");
+      break;
+    case "hb_booster":
+      s.push("Place the booster flat on the vehicle seat, back against the seat back. If it has lower-anchor connectors, attaching them keeps it in place when empty.");
+      s.push("With the child seated: lap belt low across the upper thighs/hips (not the belly); shoulder belt through the red/marked guide, crossing the middle of the shoulder and chest.");
+      s.push("Adjust the headrest so the shoulder belt guide sits just above the shoulder.");
+      s.push("Buckle the booster even when no one is in it (or use its lower anchors), so it doesn't fly forward in a crash.");
+      break;
+    case "backless":
+      s.push("Only use where the vehicle has a head restraint: the top of the child's ears must be below the top of the vehicle seat or head restraint.");
+      s.push("Lap belt low across the upper thighs; shoulder belt across the middle of the shoulder. Use the shoulder-belt positioning clip if it came with the booster.");
+      s.push("Buckle it when empty so it doesn't become a projectile.");
+      break;
+    case "adaptive":
+      s.push("Adaptive restraints are fitted to the child. Follow the manufacturer's instructions and the guidance of the child's therapist or medical team, and have the install checked by a CPST with special-needs training.");
+      break;
+  }
+  if (mode === "rf") s.push("Harness straps at or BELOW the baby's shoulders. Chest clip at armpit level. Snug the harness until you can't pinch any slack at the collarbone.");
+  if (mode === "ff") s.push("Harness straps at or ABOVE the child's shoulders. Chest clip at armpit level. Pinch test at the collarbone.");
+  if (mode === "rf" || mode === "ff") s.push("No bulky coats or snowsuits under the harness. Put the coat on backwards over the buckled harness or use a blanket.");
+  if (pos && pos.endsWith("center")) s.push("Center seat: many vehicles have no center lower anchors. Use the seat belt unless BOTH manuals say you may borrow the inner anchors from the outboard seats.");
+  if (pos && pos.startsWith("r3")) s.push("3rd row: confirm this seat has a lap-and-shoulder belt and a tether anchor before choosing it. Some 3rd-row seats don't.");
+  if (pos === "front") s.push("If a child must ride in front (no back seat), move the vehicle seat all the way back.");
+  return common.concat(s);
+}
+
+/* ---------------- links ---------------- */
+const g = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+function linksHtml() {
+  const brand = val("seatBrand"), model = val("seatModel");
+  const vy = val("vYear"), vm = val("vMake"), vmo = val("vModel");
+  const veh = [vy, vm, vmo].filter(Boolean).join(" ");
+  const L = [];
+  if (brand) {
+    const site = BRAND_SITES[brand.toUpperCase()];
+    if (site) L.push([`${titleCase(brand.toUpperCase())} official site (manuals, registration, recalls)`, site]);
+    L.push([`Find the ${brand} ${model} manual (PDF)`, g(`${brand} ${model} car seat instruction manual pdf`)]);
+    L.push([`Find the ${brand} ${model} expiration / serial number lookup`, g(`${brand} ${model} car seat expiration date serial number`)]);
+    L.push([`Install videos: ${brand} ${model}${veh ? " in a " + veh : ""}`, `https://www.youtube.com/results?search_query=${encodeURIComponent(`${brand} ${model} car seat install ${veh}`)}`]);
+  }
+  if (veh) L.push([`${veh} owner's manual: child seat & LATCH locations`, g(`${veh} owner's manual child restraint LATCH lower anchor tether locations`)]);
+  L.push(["Check vehicle recalls by VIN — checktoprotect.org", "https://www.checktoprotect.org/"]);
+  L.push(["NHTSA recall search (car seats & vehicles)", "https://www.nhtsa.gov/recalls"]);
+  L.push(["Michigan child passenger safety law", "https://www.michigan.gov/msp/divisions/ohsp/child-passenger-safety"]);
+  L.push(["Find a certified car seat technician near you", "https://cert.safekids.org/get-car-seat-checked"]);
+  L.push(["NHTSA car seat guidance & inspection stations", "https://www.nhtsa.gov/vehicle-safety/car-seats-and-booster-seats"]);
+  return `<div class="links">${L.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join("")}</div>`;
+}
+
+/* ---------------- report ---------------- */
+const item = (lvl, title, body = "") => ({ lvl, html: `<div class="item ${lvl}"><b>${title}</b>${body}</div>` });
+function render() {
+  const out = [];
+  const age = childAge(), w = num("weight"), h = num("height");
+  const type = val("seatType"), st = SEAT_TYPES[type], mode = st?.mode;
+  const pos = val("position"), method = val("installMethod");
+  const name = esc(val("childName") || "Your child");
+
+  /* Michigan law */
+  const law = [];
+  const stage = michiganStage(age, h);
+  if (stage) {
+    law.push(item("info", `${name} (${fmtAge(age)}${w ? `, ${w} lb` : ""}${h ? `, ${h} in` : ""}): ${stage.title}`, stage.text));
+    if (st) {
+      const lim = limitsFor(type);
+      const typ = (x) => (x.entered ? "" : " (typical — enter your seat's limit above)");
+      const over = (w != null && lim.maxW.v && w > lim.maxW.v) || (h != null && lim.maxH.v && h > lim.maxH.v);
+      const under = w != null && lim.minW.v && w < lim.minW.v;
+      if (mode === "rf") {
+        if (over) law.push(item("bad", "Child has outgrown this seat's rear-facing limits",
+          `Limit ${lim.maxW.v} lb${typ(lim.maxW)} / ${lim.maxH.v} in${typ(lim.maxH)}. ${age != null && age < 2 ? "Move to a convertible seat with higher rear-facing limits." : "Move to a convertible seat rear-facing, or forward-facing with a harness if they've outgrown rear-facing convertible limits."}`));
+        else if (under) law.push(item("bad", "Child is below this seat's minimum weight", `Minimum ${lim.minW.v} lb${typ(lim.minW)}.`));
+        else law.push(item("ok", `${st.label} fits Michigan law for this child`, w == null && h == null ? "Add weight and height to check the seat's limits." : `Within limits of ${lim.maxW.v} lb / ${lim.maxH.v} in${lim.maxW.entered ? "" : " (typical)"}. Also keep at least 1 inch of shell above the child's head.`));
+      } else if (mode === "ff") {
+        if (age != null && age < 2) law.push(item("bad", "Too young to forward-face under Michigan law",
+          "Children under 2 must stay rear-facing unless they've outgrown the rear-facing limits of their seat. Use a convertible seat rear-facing."));
+        else if (over) law.push(item("bad", "Child has outgrown this harness", `Limit ${lim.maxW.v} lb${typ(lim.maxW)} / ${lim.maxH.v} in${typ(lim.maxH)}. ${age != null && age >= 5 ? "Move to a belt-positioning booster." : "Look for a harness seat with higher limits; Michigan requires a harness until age 5 unless outgrown."}`));
+        else if (under) law.push(item("bad", "Child is below this seat's forward-facing minimum", `Minimum ${lim.minW.v} lb${typ(lim.minW)}. Keep rear-facing.`));
+        else law.push(item("ok", `${st.label} fits Michigan law for this child`, age != null && age < 4 ? "Legal. If they still fit a rear-facing seat, rear-facing is safer." : "Use the top tether every time."));
+      } else if (mode === "booster") {
+        if (age != null && age < 5) law.push(item("bad", "Too young for a booster under Michigan law",
+          "Children under 5 must use a harnessed seat unless they've outgrown its weight or height limit."));
+        else if (under) law.push(item("bad", "Child is below this booster's minimum weight", `Minimum ${lim.minW.v} lb${typ(lim.minW)}. Keep using a harnessed seat.`));
+        else if (over) law.push(item("warn", "Child is over this booster's limits", "Check whether the seat belt fits with the 5-step test below."));
+        else law.push(item("ok", `${st.label} fits Michigan law for this child`, "A booster only works with a lap-and-shoulder belt — never a lap-only belt."));
+      } else if (mode === "special") {
+        law.push(item("info", "Adaptive restraint", "Michigan law still applies by age and size. Use the seat as prescribed and confirm the fit with the child's care team."));
+      }
+    }
+    if (stage.key === "belt" || (age != null && age >= 7)) law.push(item("info", "5-step seat belt test (all must be yes to skip the booster)",
+      `<ol class="steps"><li>Back against the vehicle seat back</li><li>Knees bend at the edge of the seat</li><li>Lap belt on the upper thighs, not the belly</li><li>Shoulder belt across the middle of the shoulder and chest</li><li>Can stay seated like this for the whole trip</li></ol>`));
+  }
+  if (law.length) out.push(`<h3>Michigan law &amp; seat fit</h3>${law.map((x) => x.html).join("")}`);
+
+  /* Position */
+  const p = [];
+  if (pos) {
+    const posLabel = POSITIONS[pos];
+    if (pos === "front") {
+      if (mode === "rf" && !val("airbagOff")) p.push(item("bad", "Never put a rear-facing seat in front of an active airbag", "Move it to the back seat. An airbag can hit the back of the seat with deadly force."));
+      if (age != null && age < 13 && val("hasRear")) p.push(item("bad", "Michigan law: children under 13 ride in the back seat", "Your vehicle has a back seat, so move this child there."));
+      else if (!p.length) p.push(item("warn", "Front seat", "Allowed only when there is no back seat available. Slide the vehicle seat all the way back."));
+    } else {
+      p.push(item("ok", `${posLabel}: back seat`, age != null && age < 13 ? "Meets Michigan's rule that children under 13 ride in the back seat." : ""));
+    }
+    if ((mode === "rf" || mode === "ff") && method === "latch") {
+      if (val("lowerAnchors") === "no") p.push(item("bad", "No lower anchors at this seating position", "Install with the seat belt instead, or move to a position that has lower anchors."));
+      const sw = num("seatWeight");
+      if (w != null && sw != null) {
+        const tot = w + sw;
+        p.push(tot > 65 ? item("warn", `Lower-anchor limit: child + seat = ${tot} lb`, "Over the standard 65 lb combined limit. Switch to a seat-belt install (keep the top tether if forward-facing), unless your seat's label gives a different lower-anchor limit.")
+                        : item("ok", `Lower-anchor limit: child + seat = ${tot} lb`, "Under the standard 65 lb combined limit. Check the label for your seat's exact limit."));
+      }
+      const agentLA = parseFloat(agentFindings?.seat_limits?.lower_anchor_limit_lb);
+      if (Number.isFinite(agentLA)) p.push(item(w != null && w > agentLA ? "warn" : "info", `Manual's lower-anchor limit: ${agentLA} lb`,
+        `From the research agent${srcLink(agentFindings.seat_limits.source)}. Check whether the manual means the child's weight or child + seat, and switch to a seat-belt install above it.`));
+      if (w != null && sw == null && w > 35) p.push(item("info", "Check the lower-anchor weight limit", "Enter the seat's own weight above. Lower anchors are usually limited to 65 lb for child + seat combined."));
+    }
+    if (mode === "booster" && method && method !== "booster_belt") p.push(item("warn", "Boosters use the vehicle lap-and-shoulder belt on the child", "Lower-anchor connectors on a booster only hold it in place; the seat belt restrains the child."));
+    if (mode === "ff") {
+      if (val("tetherAnchor") === "no") p.push(item("bad", "No top tether anchor here", "Forward-facing harness seats should always be tethered. Choose a position with a tether anchor."));
+      else if (!val("tetherUsed")) p.push(item("warn", "Attach the top tether", "It cuts forward head movement in a crash by 4–6 inches. Find the anchor in your owner's manual."));
+      else p.push(item("ok", "Top tether attached"));
+    }
+    if (mode === "backless" || type === "backless") p.push(item("info", "Backless booster needs a head restraint", "The vehicle seat or head restraint must reach above the top of the child's ears."));
+  }
+  if (p.length) out.push(`<h3>Seating position</h3>${p.map((x) => x.html).join("")}`);
+
+  /* Car seat condition */
+  const s = [];
+  const ex = expiration();
+  if (ex?.date) {
+    const days = (ex.date - new Date()) / 864e5;
+    s.push(days < 0 ? item("bad", `Expired on ${fmtDate(ex.date)}`, "Stop using this seat. Cut the straps and mark it EXPIRED before throwing it away.")
+         : days < 183 ? item("warn", `Expires soon: ${fmtDate(ex.date)}`, `Based on ${ex.source}. Plan a replacement.`)
+         : item("ok", `Expires ${fmtDate(ex.date)}`, `Based on ${ex.source}.`));
+  } else if (ex?.range) {
+    const [a, b] = ex.range;
+    s.push(item(a < new Date() ? "warn" : "info", "Expiration not on file yet",
+      `Most seats last 6–10 years from manufacture, so this one likely expires between ${fmtDate(a)} and ${fmtDate(b)}. Find the "Do not use after" date on the label, or look it up on the manufacturer's site with your serial number.`));
+  } else if (type) s.push(item("info", "Add the expiration or manufacture date", "Both are printed on the seat's label (sometimes molded into the plastic on the bottom)."));
+  if (val("crashed")) s.push(item("bad", "This seat has been in a crash", "NHTSA says to replace a seat after a moderate or severe crash. Some manufacturers require replacement after any crash. Check your manual."));
+  if (type && !val("registered")) s.push(item("warn", "Register the seat", "Registering with the manufacturer is how you get recall notices. Use the registration card or the manufacturer's site."));
+  if (seatRecallState) {
+    const lk = seatRecallState.likely;
+    const hot = lk.filter((e) => e.dateIn !== false);
+    s.push(hot.length ? item("bad", `${hot.length} possible car seat recall${hot.length > 1 ? "s" : ""}`, `${hot.map((e) => esc(e.c.campaign)).join(", ")}: compare your model number and manufacture date with the recall details.`)
+         : lk.length ? item("ok", "Recalls found for similar models, but your manufacture date is outside them", "Double-check with the manufacturer using your serial number.")
+         : item("ok", "No car seat recall found for this model", "Checked NHTSA's car seat recall records."));
+  } else if (val("seatBrand")) s.push(item("info", "Car seat recalls not checked yet", 'Press "Check car seat recalls".'));
+  if (s.length) out.push(`<h3>Car seat condition</h3>${s.map((x) => x.html).join("")}`);
+
+  /* Vehicle */
+  if (vehicleRecallState) {
+    const l = vehicleRecallState.list, rel = l.filter((r) => CHILD_RELEVANT.test(r.Component));
+    out.push(`<h3>Vehicle</h3>` + (!l.length ? item("ok", `No recalls on file for the ${esc(vehicleRecallState.label)}`).html
+      : item(rel.length ? "bad" : "warn", `${l.length} recall${l.length > 1 ? "s" : ""} for the ${esc(vehicleRecallState.label)}`,
+        `${rel.length ? `${rel.length} involve seats, belts, anchors or airbags. ` : ""}Check by VIN to see if yours has been repaired.`).html));
+  }
+
+  /* Install */
+  if (type) {
+    const steps = installSteps(type, method, pos, mode);
+    out.push(`<h3>How to install: ${esc(st.label.toLowerCase())}${pos ? `, ${esc(POSITIONS[pos])}` : ""}</h3><ol class="steps">${steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>`);
+  }
+
+  if (agentFindings) {
+    const f = agentFindings, a = [];
+    const fi = (t, x) => x && x.value && a.push(item("info", t, `${esc(x.value)}${srcLink(x.source)}`));
+    fi("Expiration rule (manufacturer)", f.seat_expiration);
+    fi("Recall status (manufacturer)", f.seat_recall_status);
+    fi("Lower anchors in this vehicle", f.vehicle_lower_anchor_positions);
+    fi("Top tether anchors in this vehicle", f.vehicle_tether_positions);
+    fi("This seating position", f.position_assessment);
+    if (f.unconfirmed && f.unconfirmed.length) a.push(item("warn", "Agent couldn't confirm", esc(f.unconfirmed.join("; "))));
+    out.push(`<h3>From the manuals (research agent)</h3>${a.map((x) => x.html).join("")}`);
+  }
+  out.push(`<h3>Manuals &amp; lookups</h3>${linksHtml()}`);
+
+  const all = out.join("");
+  const bad = (all.match(/class="item bad"/g) || []).length, warn = (all.match(/class="item warn"/g) || []).length;
+  const bar = (age != null || type || pos) ? `<div class="summary-bar">${bad ? `<span class="pill bad">${bad} to fix</span>` : ""}${warn ? `<span class="pill warn">${warn} to check</span>` : ""}${!bad && !warn ? '<span class="pill ok">No problems found so far</span>' : ""}</div>` : "";
+  $("#reportBody").innerHTML = bar + all;
+}
+
+/* ---------------- research agent ---------------- */
+let agentFindings = null;
+const selText = (id) => { const el = document.getElementById(id); return el.value ? el.options[el.selectedIndex].text : ""; };
+const srcLink = (u) => /^https?:\/\//.test(u || "") ? ` <a href="${esc(u)}" target="_blank" rel="noopener" class="meta">source ↗</a>` : "";
+const factHtml = (label, f) => f && f.value ? `<p><b>${label}:</b> ${esc(f.value)}${srcLink(f.source)}</p>` : `<p><b>${label}:</b> <span class="meta">not confirmed</span></p>`;
+
+function renderAgentFindings() {
+  const box = $("#agentResults");
+  const f = agentFindings;
+  if (!f) { box.innerHTML = ""; return; }
+  const L = f.seat_limits || {};
+  const lim = (a, b, c) => [a && `${a}–${b || "?"} lb`, c && `up to ${c} in`].filter(Boolean).join(", ") || "—";
+  const steps = (arr) => arr && arr.length ? `<ol class="steps">${arr.map((s) => `<li>${esc(s.text)}${srcLink(s.source)}</li>`).join("")}</ol>` : '<p class="meta">None found.</p>';
+  box.innerHTML = `
+    <details class="recall" open><summary>Car seat: ${esc(val("seatBrand"))} ${esc(val("seatModel"))}</summary>
+      ${factHtml("Expiration", f.seat_expiration)}
+      ${factHtml("Serial number lookup", f.serial_lookup)}
+      ${factHtml("Recall status", f.seat_recall_status)}
+      <p><b>Limits:</b> rear-facing ${lim(L.rear_facing_min_lb, L.rear_facing_max_lb, L.rear_facing_max_in)}; harness ${lim(L.harness_min_lb, L.harness_max_lb, L.harness_max_in)}; booster ${lim(L.booster_min_lb, L.booster_max_lb, L.booster_max_in)}${L.seat_weight_lb ? `; seat weighs ${esc(L.seat_weight_lb)} lb` : ""}${L.lower_anchor_limit_lb ? `; lower anchors up to ${esc(L.lower_anchor_limit_lb)} lb` : ""}${srcLink(L.source)}</p>
+      <button type="button" class="ghost no-print" id="applyLimits">Use these limits &amp; useful life in the checks</button>
+      ${f.seat_manual_url ? `<p><a href="${esc(f.seat_manual_url)}" target="_blank" rel="noopener">Car seat manual ↗</a></p>` : ""}
+      <p><b>Install steps from the manual:</b></p>${steps(f.seat_install_steps)}
+    </details>
+    <details class="recall" open><summary>Vehicle: ${esc([val("vYear"), val("vMake"), val("vModel")].join(" "))}</summary>
+      ${factHtml("Lower anchors", f.vehicle_lower_anchor_positions)}
+      ${factHtml("Top tether anchors", f.vehicle_tether_positions)}
+      ${factHtml("Center seat", f.vehicle_center_seat_rules)}
+      ${factHtml("This seating position", f.position_assessment)}
+      ${f.vehicle_manual_url ? `<p><a href="${esc(f.vehicle_manual_url)}" target="_blank" rel="noopener">Owner's manual ↗</a></p>` : ""}
+      <p><b>Car seat cautions from the owner's manual:</b></p>${steps(f.vehicle_cautions)}
+    </details>
+    ${f.unconfirmed && f.unconfirmed.length ? `<div class="item warn"><b>Couldn't confirm</b><ul>${f.unconfirmed.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>` : ""}
+    <p class="hint">AI-gathered from the linked sources. Check anything important against the manual itself.</p>`;
+  const btn = $("#applyLimits");
+  if (btn) btn.onclick = applyAgentLimits;
+}
+
+function applyAgentLimits() {
+  const L = agentFindings?.seat_limits || {}, mode = SEAT_TYPES[val("seatType")]?.mode;
+  const pick = mode === "rf" ? ["rear_facing_min_lb", "rear_facing_max_lb", "rear_facing_max_in"]
+             : mode === "ff" ? ["harness_min_lb", "harness_max_lb", "harness_max_in"]
+             : mode === "booster" ? ["booster_min_lb", "booster_max_lb", "booster_max_in"] : null;
+  const n = (s) => { const m = String(s || "").match(/\d+(\.\d+)?/); return m ? m[0] : ""; };
+  const setIf = (id, v) => { const el = document.getElementById(id); if (el && n(v)) el.value = n(v); };
+  if (pick) { setIf("limMinW", L[pick[0]]); setIf("limMaxW", L[pick[1]]); setIf("limMaxH", L[pick[2]]); }
+  setIf("seatWeight", L.seat_weight_lb);
+  if (!val("expDate")) setIf("lifeYears", L.useful_life_years);
+  save(); render();
+}
+
+async function runAgent() {
+  const log = $("#agentLog"), btn = $("#runAgent");
+  if (!val("seatBrand") || !val("seatModel")) { log.innerHTML = '<div class="item warn">Enter the car seat brand and model first.</div>'; return; }
+  const age = childAge();
+  const body = {
+    seatTypeLabel: selText("seatType"), seatBrand: val("seatBrand"), seatModel: val("seatModel"),
+    seatModelNo: val("seatModelNo"), mfgDate: val("mfgDate"), vYear: val("vYear"), vMake: val("vMake"), vModel: val("vModel"),
+    positionLabel: selText("position"), installMethodLabel: selText("installMethod"),
+    ageLabel: age != null ? fmtAge(age) : "", weight: val("weight"), height: val("height"),
+  };
+  btn.disabled = true; btn.textContent = "Researching…";
+  log.innerHTML = ""; agentFindings = null; renderAgentFindings();
+  const addLine = (t) => { const p = document.createElement("div"); p.textContent = "• " + t; log.appendChild(p); };
+  try {
+    const res = await fetch("/api/research", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok || !res.body) throw new Error(`Server error ${res.status}`);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === "status") addLine(ev.text);
+        else if (ev.type === "error") log.innerHTML += `<div class="item bad"><b>Research failed</b>${esc(ev.text)}</div>`;
+        else if (ev.type === "result") { agentFindings = ev.findings; addLine("Done."); }
+      }
+    }
+  } catch (e) {
+    log.innerHTML += `<div class="item bad"><b>Research failed</b>${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Research this seat & vehicle";
+    renderAgentFindings(); save(); render();
+  }
+}
+$("#runAgent").onclick = runAgent;
+// The standalone build (tools/build.py) sets SEATCHECK_STANDALONE and has no AI agent at all.
+const STANDALONE = !!window.SEATCHECK_STANDALONE;
+if (STANDALONE) $("#agentCard").hidden = true;
+else fetch("/api/status").then((r) => r.ok ? r.json() : null).catch(() => null).then((s) => {
+  if (!s?.agent) { $("#agentOffline").hidden = false; $("#agentControls").hidden = true; }
+});
+
+/* ---------------- persistence (this browser only) ---------------- */
+const LS_CUR = "seatcheck.current", LS_PROFILES = "seatcheck.profiles";
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+let stored = lsGet(LS_CUR, {});
+function collect() { const o = {}; document.querySelectorAll("[data-save]").forEach((el) => o[el.id] = el.type === "checkbox" ? el.checked : el.value); if (agentFindings) o.__agent = agentFindings; return o; }
+function apply(o) {
+  stored = o || {};
+  agentFindings = window.SEATCHECK_STANDALONE ? null : (stored.__agent || null);
+  $("#agentLog").innerHTML = "";
+  renderAgentFindings();
+  document.querySelectorAll("[data-save]").forEach((el) => {
+    if (!(el.id in stored)) { if (el.type === "checkbox") el.checked = el.id === "hasRear"; else el.value = ""; return; }
+    if (el.type === "checkbox") el.checked = !!stored[el.id]; else el.value = stored[el.id];
+  });
+  renderLimitFields();
+  document.querySelectorAll("#limitsGrid [data-save]").forEach((el) => el.value = stored[el.id] ?? "");
+}
+function save() { lsSet(LS_CUR, collect()); }
+function refreshProfiles(selected = "") {
+  const p = lsGet(LS_PROFILES, {});
+  $("#profileSelect").innerHTML = '<option value="">Saved children…</option>' + Object.keys(p).sort().map((n) => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+}
+$("#saveProfile").onclick = () => {
+  const n = val("childName") || prompt("Name for this profile?"); if (!n) return;
+  if (!val("childName")) $("#childName").value = n;
+  const p = lsGet(LS_PROFILES, {}); p[n] = collect(); lsSet(LS_PROFILES, p); refreshProfiles(n); save();
+};
+$("#newProfile").onclick = () => { apply({}); agentFindings = null; renderAgentFindings(); seatRecallState = vehicleRecallState = null; $("#seatRecallResults").innerHTML = $("#vehicleRecallResults").innerHTML = ""; $("#profileSelect").value = ""; save(); render(); };
+$("#profileSelect").onchange = (e) => {
+  const p = lsGet(LS_PROFILES, {})[e.target.value]; if (!p) return;
+  apply(p); seatRecallState = vehicleRecallState = null; $("#seatRecallResults").innerHTML = $("#vehicleRecallResults").innerHTML = ""; save(); render();
+  if (val("seatBrand")) runSeatRecalls();
+  if (val("vYear") && val("vMake") && val("vModel")) runVehicleRecalls();
+};
+
+/* ---------------- wiring ---------------- */
+document.addEventListener("input", (e) => {
+  if (e.target.id === "seatType") renderLimitFields();
+  if (["seatBrand", "seatModel", "seatModelNo", "mfgDate"].includes(e.target.id) && seatRecallState) { seatRecallState = null; $("#seatRecallResults").innerHTML = ""; }
+  if (["vYear", "vMake", "vModel"].includes(e.target.id) && vehicleRecallState) { vehicleRecallState = null; }
+  save(); render();
+});
+$("#vYear").addEventListener("change", loadMakes);
+$("#vMake").addEventListener("change", loadModels);
+$("#checkSeatRecalls").onclick = runSeatRecalls;
+$("#checkVehicleRecalls").onclick = () => { $("#vehicleRecallResults").innerHTML = ""; runVehicleRecalls(); };
+$("#decodeVin").onclick = decodeVin;
+
+apply(stored);
+refreshProfiles();
+render();
+if (val("vYear")) { loadMakes(); if (val("vMake")) loadModels(); }
+</script>
+</body>
+</html>
