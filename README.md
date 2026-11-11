@@ -49,7 +49,8 @@ Children's profiles are saved only in this browser (localStorage).
 
 ## Refresh the car seat recall data
 
-NHTSA updates the recall file daily. To pull the latest data:
+NHTSA updates the recall file daily. On GitHub, `.github/workflows/refresh-recalls.yml` does this automatically
+every morning (and can be run any time from the Actions tab). To refresh by hand:
 
 ```bash
 python3 tools/update_recalls.py

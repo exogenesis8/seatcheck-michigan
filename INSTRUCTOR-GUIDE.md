@@ -50,10 +50,13 @@ Put the `Full-Project` folder in a public GitHub repository, then go to **Settin
 On GitHub Pages, run the build (section 4), then commit and push. In a terminal, from the project folder:
 
 ```bash
+git pull
 git add -A
 git commit -m "Update recall data"
 git push
 ```
+
+Start with `git pull`: the daily refresh adds its own commits on GitHub, and pulling them first avoids a push error.
 
 You can also upload the new `docs/index.html` on GitHub's website: open the `docs` folder, click **Add file → Upload files**.
 
@@ -95,16 +98,32 @@ Copy `Standalone-File/SeatCheck-Michigan.html` to each laptop, or email or AirDr
 
 ## 4. Keeping recall data current
 
-Car seat recalls are built into the app. Vehicle recalls are always live. Refresh the car seat recalls every month or two, or whenever NHTSA announces a big car seat recall.
+Vehicle recalls, VIN lookups and the "Confirmed with NHTSA" check are always live. The **list of car seat
+recalls** is saved inside the website, so it needs refreshing to pick up new recalls. The footer of the app
+shows the date of the last refresh.
 
-You need Python 3, which macOS usually has. In a terminal, from the `Full-Project` folder:
+**On GitHub Pages it refreshes itself every day.** The project includes an automatic job
+(`.github/workflows/refresh-recalls.yml`). Every morning, GitHub's servers download NHTSA's recall file,
+rebuild the site, and republish it. Nothing needs to be running on your computer.
+
+- To see it working: open your repository on GitHub and click **Actions → Refresh car seat recalls**.
+  Each day shows a green check. A red X means that day's refresh failed (for example, NHTSA's site was down).
+  GitHub emails the account owner, and the next day's run tries again.
+- To refresh right away (for example, the morning of a class after a big recall announcement):
+  **Actions → Refresh car seat recalls → Run workflow**.
+- If you set up your own copy on GitHub, the automatic refresh comes with it. If GitHub asks, click
+  **"I understand my workflows, go ahead and enable them"** on the Actions tab.
+
+**On Netlify, or for the standalone file, refresh by hand** every few weeks. You need Python 3, which macOS
+usually has. In a terminal, from the `Full-Project` folder:
 
 ```bash
 python3 tools/update_recalls.py
 python3 tools/build.py
 ```
 
-Then publish the update (section 1: Netlify, or commit and push for GitHub Pages), and hand out the new `dist/SeatCheck-Michigan.html` if you use the standalone file. The footer of the app shows the date the recall data was last updated.
+Then upload the new `dist/website` folder to Netlify (section 1), and hand out the new
+`dist/SeatCheck-Michigan.html` if you use the standalone file.
 
 ---
 

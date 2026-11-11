@@ -24,7 +24,7 @@ PKG = "SeatCheck-Michigan-Instructor-Package"
 PROJECT_FILES = [
     "index.html", "data/carseat-recalls.js", "agent.py", "server.py", "requirements.txt",
     "README.md", "INSTRUCTOR-GUIDE.md", "tools/build.py", "tools/update_recalls.py", "tools/make_qr.py", ".gitignore",
-    "docs/index.html", "docs/.nojekyll",
+    "docs/index.html", "docs/.nojekyll", ".github/workflows/refresh-recalls.yml",
 ]
 ENV_TEMPLATE = """# Paste your Anthropic API key after the = sign, save, then restart the server.
 # Get one at https://console.anthropic.com/settings/keys
