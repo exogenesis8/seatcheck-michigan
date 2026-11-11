@@ -27,7 +27,7 @@ python3 tools/build.py
 
 | Output | What it is |
 |---|---|
-| `dist/website/` | The student website (no AI). Upload the folder to Netlify Drop or GitHub Pages. |
+| `dist/website/` and `docs/` | The student website (no AI). `docs/` is what GitHub Pages publishes; commit and push it after a build. `dist/website/` is for Netlify Drop. |
 | `dist/SeatCheck-Michigan.html` | The same app as one file. Double-click to open; best on laptops. |
 | `dist/SeatCheck-Michigan-Instructor-Package.zip` | What you give a trainer: the website, the standalone file, and the full project (AI version + source), with `INSTRUCTOR-GUIDE.md` on top as `START-HERE.md`. Contains an empty `.env` template, never your key. |
 

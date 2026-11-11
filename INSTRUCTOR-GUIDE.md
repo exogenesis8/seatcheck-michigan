@@ -39,10 +39,21 @@ Students get one link (or a QR code on your slide) that works on any phone or la
 4. Open the link on your phone to confirm it works.
 5. Make a QR code for your slides. Any free QR code generator works, or use your phone's Share menu.
 
-**Alternative: GitHub Pages.** Create a repository, upload `Student-Website/index.html`, then turn on
-**Settings → Pages**. Use this if your organization already uses GitHub.
+**Alternative: GitHub Pages (free).** The project already includes a `docs/` folder built for GitHub Pages.
+Put the `Full-Project` folder in a public GitHub repository, then go to **Settings → Pages**, set **Source** to
+"Deploy from a branch", choose branch `main` and folder `/docs`, and save. After about a minute the site is live at
+`https://YOUR-USERNAME.github.io/REPOSITORY-NAME/`.
 
-**To update the site later,** drag the new `Student-Website` folder onto your site's **Deploys** page in Netlify.
+**To update the site later:** on Netlify, drag the new `website` folder onto your site's **Deploys** page.
+On GitHub Pages, run the build (section 4), then commit and push. In a terminal, from the project folder:
+
+```bash
+git add -A
+git commit -m "Update recall data"
+git push
+```
+
+You can also upload the new `docs/index.html` on GitHub's website: open the `docs` folder, click **Add file → Upload files**.
 
 ---
 
@@ -91,7 +102,7 @@ python3 tools/update_recalls.py
 python3 tools/build.py
 ```
 
-Then upload the new `dist/website` folder to Netlify (section 1), and hand out the new `dist/SeatCheck-Michigan.html` if you use the standalone file. The footer of the app shows the date the recall data was last updated.
+Then publish the update (section 1: Netlify, or commit and push for GitHub Pages), and hand out the new `dist/SeatCheck-Michigan.html` if you use the standalone file. The footer of the app shows the date the recall data was last updated.
 
 ---
 
