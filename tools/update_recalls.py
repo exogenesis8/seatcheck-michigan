@@ -14,8 +14,10 @@ Field layout: https://static.nhtsa.gov/odi/ffdd/rcl/RCL.txt
 import csv
 import io
 import json
+import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import date
@@ -79,14 +81,25 @@ def build(path):
           f"({sum(len(c['products']) for c in data)} seat models) to {OUT}")
 
 
+def download(url, dest):
+    """Fetch url. Python installed from python.org on a Mac often has no security certificates
+    set up, so fall back to the system's curl when Python's own download fails."""
+    try:
+        with urllib.request.urlopen(url, timeout=300) as resp:
+            return resp.read()
+    except urllib.error.URLError as e:
+        print(f"Python download failed ({e.reason}); trying curl instead...")
+        subprocess.run(["curl", "-fsSL", "--max-time", "300", "-o", str(dest), url], check=True)
+        return dest.read_bytes()
+
+
 def main():
     if len(sys.argv) > 1:
         build(sys.argv[1])
         return
     with tempfile.TemporaryDirectory() as tmp:
         print("Downloading NHTSA recall file (~15 MB)...")
-        with urllib.request.urlopen(URL, timeout=300) as resp:
-            z = zipfile.ZipFile(io.BytesIO(resp.read()))
+        z = zipfile.ZipFile(io.BytesIO(download(URL, Path(tmp) / "rcl.zip")))
         name = next(n for n in z.namelist() if n.lower().endswith(".txt"))
         z.extract(name, tmp)
         build(Path(tmp) / name)
