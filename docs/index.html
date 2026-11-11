@@ -396,20 +396,26 @@ function matchSeatRecalls() {
     let best = null;
     for (const p of prods) {
       const pm = norm(p.model);
-      let score = 0;
-      // Exact matches beat partial ones (e.g. "B-Safe Gen 2" over "B-Safe Gen 2 FlexFit").
-      if (nNo && nNo.length >= 4 && pm === nNo) score = 3.5;
-      else if (nNo && nNo.length >= 4 && (pm.includes(nNo) || nNo.includes(pm))) score = 3;
-      else if (nModel && nModel.length >= 3 && pm === nModel) score = 2.5;
-      else if (nModel && nModel.length >= 3 && (pm.includes(nModel) || nModel.includes(pm))) score = 2;
-      else if (modelTokens.length && modelTokens.every((t) => (p.model.toUpperCase() + " " + c.summary.toUpperCase()).includes(t))) score = 1;
-      if (score && (!best || score > best.score)) best = { score, p };
+      // How the recalled model relates to the seat entered. Exact beats partial
+      // ("B-Safe Gen 2" over "B-Safe Gen 2 FlexFit"); a recalled name that is only part
+      // of yours ("SnugRide" inside "SnugRide Turn & Slide") is the weakest name match.
+      let score = 0, kind = "";
+      if (nNo && nNo.length >= 4 && pm === nNo) { score = 3.5; kind = "number"; }
+      else if (nNo && nNo.length >= 4 && (pm.includes(nNo) || nNo.includes(pm))) { score = 3; kind = "number-partial"; }
+      else if (nModel && nModel.length >= 3 && pm === nModel) { score = 2.5; kind = "exact"; }
+      else if (nModel && nModel.length >= 3 && pm.includes(nModel)) { score = 2; kind = "variant"; }
+      else if (nModel && nModel.length >= 3 && pm.length >= 3 && nModel.includes(pm)) { score = 1.5; kind = "part"; }
+      else if (modelTokens.length && modelTokens.every((t) => (p.model.toUpperCase() + " " + c.summary.toUpperCase()).includes(t))) { score = 1; kind = "words"; }
+      if (score && (!best || score > best.score)) best = { score, kind, p };
     }
     const entry = { c, prods, best };
     if (best) {
       // NHTSA's file occasionally lists a start date after the end date; never clear a seat on a range like that.
       entry.badRange = !!(best.p.mfgStart && best.p.mfgEnd && best.p.mfgStart > best.p.mfgEnd);
-      if (mfg && best.p.mfgStart && best.p.mfgEnd && !entry.badRange) entry.dateIn = mfg >= best.p.mfgStart && mfg <= best.p.mfgEnd;
+      const hasRange = best.p.mfgStart && best.p.mfgEnd && !entry.badRange;
+      if (mfg && hasRange) entry.dateIn = mfg >= best.p.mfgStart && mfg <= best.p.mfgEnd;
+      // Without a usable range, a seat made after the recall was filed can't be part of it.
+      else if (mfg && c.reported && mfg > c.reported) { entry.dateIn = false; entry.afterFiled = true; }
       likely.push(entry);
     } else brandHits.push(entry);
   }
@@ -457,14 +463,21 @@ function whyMatched(e) {
   if (!e || !e.best) return "";
   const p = e.best.p, mfg = val("mfgDate"), no = val("seatModelNo");
   const yours = [val("seatBrand"), val("seatModel")].filter(Boolean).join(" ") + (no ? `, model number ${no}` : "") + (mfg ? `, made ${fmtIso(mfg)}` : "");
-  const basis = e.best.score >= 3 ? `Your model number matches the recalled model "${p.model}".`
-    : e.best.score >= 2 ? `Your model name matches the recalled model "${p.model}".`
-    : `The words in your model name appear in NHTSA's description of this recall (listed model: "${p.model}"). This is a weaker match; check the official record.`;
-  const range = p.mfgStart && p.mfgEnd ? `seats made ${fmtIso(p.mfgStart)} to ${fmtIso(p.mfgEnd)}` : "a manufacture date range NHTSA didn't list";
-  const verdict = e.badRange ? "NHTSA's record lists a start date after the end date, so this range can't be used. Check the official record and the manufacturer's recall page with your model number."
+  const basis = {
+    "number": `Your model number matches the recalled model "${p.model}".`,
+    "number-partial": `Your model number partly matches the recalled model "${p.model}".`,
+    "exact": `Your model name matches the recalled model "${p.model}".`,
+    "variant": `The recalled model "${p.model}" is a version of the model name you entered. Check that it's your exact model.`,
+    "part": `This is a partial match: the recalled model name "${p.model}" is only part of your model's name. It may be an older or different model in the same family.`,
+    "words": `The words in your model name appear in NHTSA's description of this recall (listed model: "${p.model}"). This is a weaker match; check the official record.`,
+  }[e.best.kind] || `Your seat matches the recalled model "${p.model}".`;
+  const range = p.mfgStart && p.mfgEnd ? `seats made ${fmtIso(p.mfgStart)} to ${fmtIso(p.mfgEnd)}` : "manufacture dates NHTSA didn't list";
+  const verdict = e.afterFiled ? `Your seat was made after this recall was filed with NHTSA (${fmtIso(e.c.reported)}), so it is not part of this recall.`
+    : e.badRange ? "NHTSA's record lists a start date after the end date, so this range can't be used. Check the official record and the manufacturer's recall page with your model number."
     : e.dateIn === true ? "Your manufacture date is inside this range."
     : e.dateIn === false ? "Your manufacture date is outside this range, so this seat is probably not included."
-    : "Enter the manufacture date from the label to see if your seat is inside this range.";
+    : !mfg ? "Enter the manufacture date from the label to see if your seat is included."
+    : "Without dates from NHTSA, check the official record or the manufacturer's recall page with your model number.";
   return `<div class="why"><b>Why it matched:</b> ${esc(basis)}
     <br>Your seat: ${esc(yours)}.<br>This recall covers: ${esc(range)}. ${esc(verdict)}</div>`;
 }
@@ -494,7 +507,7 @@ function runSeatRecalls() {
   if (r.likely.length) {
     html += `<div class="item warn"><b>${r.likely.length} recall${r.likely.length > 1 ? "s" : ""} may match this seat</b>Compare the model number and manufacture date on your label with each recall below.</div>`;
     html += r.likely.map((e) => recallCard(e.c,
-      e.dateIn === true ? '<span class="pill bad">date in range</span>' : e.dateIn === false ? '<span class="pill ok">date outside range</span>' : '<span class="pill warn">check date</span>',
+      e.dateIn === true ? '<span class="pill bad">date in range</span>' : e.afterFiled ? '<span class="pill ok">made after recall</span>' : e.dateIn === false ? '<span class="pill ok">date outside range</span>' : '<span class="pill warn">check date</span>',
       e.dateIn !== false, e)).join("");
   } else {
     html += `<div class="item ok"><b>No matching car seat recall found</b>Searched ${RECALLS.length} NHTSA car seat recall campaigns since 2010 for "${esc(val("seatBrand"))} ${esc(val("seatModel"))}". Confirm with the manufacturer using your serial number.</div>`;
@@ -782,7 +795,7 @@ function render() {
     const searched = `searched ${RECALLS.length} NHTSA car seat recall campaigns (NHTSA recall file updated ${esc(window.CARSEAT_RECALLS_UPDATED || "")}) for ${esc(val("seatBrand"))} ${esc(val("seatModel"))} on ${esc(when)}`;
     const outside = seatRecallState.likely.filter((e) => e.dateIn === false);
     if (!hits.length && !outside.length) ev.push(`<li>Car seat: ${searched}. No match.</li>`);
-    if (!hits.length && outside.length) ev.push(`<li>Car seat: ${searched}. Found ${outside.length} recall${outside.length > 1 ? "s" : ""} for this model, but the manufacture date entered (${esc(fmtIso(val("mfgDate")))}) is outside ${outside.length > 1 ? "their" : "its"} date range:
+    if (!hits.length && outside.length) ev.push(`<li>Car seat: ${searched}. Found ${outside.length} recall${outside.length > 1 ? "s" : ""} for this model, but the manufacture date entered (${esc(fmtIso(val("mfgDate")))}) is outside ${outside.length > 1 ? "their" : "its"} date range or after the recall was filed:
       ${outside.map((e) => `<a href="${nhtsaUrl(e.c.campaign)}" target="_blank" rel="noopener">${esc(e.c.campaign)}</a>`).join(", ")}.</li>`);
     hits.forEach((e) => {
       const v = verifyCache[e.c.campaign] || {};
