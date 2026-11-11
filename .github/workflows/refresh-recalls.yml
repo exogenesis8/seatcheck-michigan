@@ -1,0 +1,68 @@
+# Refreshes the car seat recall list from NHTSA every day and republishes the site.
+# Runs on GitHub's servers; nothing needs to be running on your computer.
+# To run it right away: GitHub → Actions → "Refresh car seat recalls" → Run workflow.
+name: Refresh car seat recalls
+
+on:
+  schedule:
+    - cron: "17 10 * * *"   # every day at 10:17 UTC (early morning in Michigan)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # commit the refreshed data
+  pages: write      # ask GitHub Pages to republish
+
+concurrency:
+  group: refresh-recalls
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download NHTSA recall file and rebuild the car seat list
+        run: python3 tools/update_recalls.py
+
+      - name: Rebuild the website
+        run: python3 tools/build.py
+
+      - name: Show what changed
+        id: diff
+        run: |
+          # The data file always gets today's date; count only real recall changes.
+          changed=$(git diff --unified=0 -- data/carseat-recalls.js | grep -E '^[+-]window.CARSEAT_RECALLS =' | wc -l)
+          echo "recall_changes=$changed" >> "$GITHUB_OUTPUT"
+          python3 - <<'EOF'
+          import json, re
+          s = open("data/carseat-recalls.js").read()
+          data = json.loads(re.search(r"window.CARSEAT_RECALLS = (.*);\n", s).group(1))
+          print(f"{len(data)} car seat recall campaigns, newest {data[0]['campaign']} reported {data[0]['reported']}")
+          EOF
+
+      - name: Commit and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/carseat-recalls.js docs/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          if [ "${{ steps.diff.outputs.recall_changes }}" != "0" ]; then
+            msg="Update car seat recalls from NHTSA"
+          else
+            msg="Daily NHTSA check: no new car seat recalls"
+          fi
+          git commit -m "$msg"
+          git push
+          # Make sure GitHub Pages rebuilds from the new commit.
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages will rebuild on its own."
