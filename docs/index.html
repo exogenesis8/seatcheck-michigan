@@ -81,7 +81,7 @@ ol.steps li{margin-bottom:6px}
 .empty{color:var(--muted);font-size:14px}
 footer{color:var(--muted);font-size:12px;padding:0 16px 40px}
 .profiles{display:flex;gap:8px;align-items:center;margin-left:auto}
-.profiles select{width:auto;min-width:160px;background:#fff;color:#0f3d5c;border-color:#fff}
+.profiles select{width:auto;min-width:160px;align-self:stretch;background:#fff;color:#0f3d5c;border-color:#fff}
 .profiles button{background:#fff;color:#0f3d5c;border-color:#fff}
 .no-recall p{margin:6px 0}
 .no-recall ul,.no-recall ol{margin:4px 0 8px;padding-left:20px}
@@ -97,20 +97,20 @@ button.suggest{padding:4px 10px;margin:6px 6px 0 0}
 .evidence-list{padding-left:18px;margin:6px 0;font-size:13px}
 .evidence-list li{margin-bottom:6px}
 .evidence-list a{color:var(--brand)}
-.theme-toggle{display:inline-flex;align-items:center;gap:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6);padding:8px 12px}
-.theme-toggle:hover{background:rgba(255,255,255,.12)}
-.theme-toggle:focus-visible{outline:2px solid #fff;outline-offset:2px}
-header .wrap > div:first-child{flex:1 1 260px;min-width:0}
-.theme-toggle{order:2;align-self:flex-start}
-header .profiles{order:3}
+/* Sun/moon pill switch: same height as the Save/New buttons beside it. */
+.profiles .theme-switch{position:relative;flex:0 0 auto;align-self:stretch;display:inline-flex;align-items:center;justify-content:space-between;
+  width:76px;padding:0 4px;border-radius:999px;background:#fff;border:1px solid #fff}
+.theme-switch .knob{position:absolute;top:4px;bottom:4px;left:4px;width:32px;border-radius:999px;background:#0f3d5c;transition:transform .2s ease}
+.theme-switch[aria-checked="true"] .knob{transform:translateX(34px)}
+.theme-switch svg{position:relative;z-index:1;flex:0 0 32px;width:32px;height:18px;color:rgba(15,61,92,.55);transition:color .2s ease}
+.theme-switch[aria-checked="false"] .ts-sun,.theme-switch[aria-checked="true"] .ts-moon{color:#fff}
+.theme-switch:hover .knob{background:#164e74}
+.theme-switch:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.theme-switch .knob,.theme-switch svg{transition:none}}
 @media (max-width:600px){
-  header .wrap > div:first-child{flex-basis:0}
-  .theme-toggle{padding:8px}
-  .theme-toggle .theme-label{display:none}
+  header .profiles{width:100%}
+  header .profiles select{flex:1 1 auto;min-width:0}
 }
-.theme-toggle .icon-sun{display:none}
-.theme-toggle[aria-pressed="true"] .icon-sun{display:inline}
-.theme-toggle[aria-pressed="true"] .icon-moon{display:none}
 .back-to-form,.jump-report{display:none}
 @media (max-width:960px){
   #report,#formTop{scroll-margin-top:12px}
@@ -146,15 +146,15 @@ header .profiles{order:3}
       <p>Car seat recalls, expiration, Michigan law fit, and install guidance in one place.</p>
     </div>
     <div class="profiles">
-      <select id="profileSelect" aria-label="Saved children"><option value="">Saved children…</option></select>
+      <select id="profileSelect" aria-label="Saved children"><option value="">Children…</option></select>
       <button type="button" id="saveProfile">Save</button>
       <button type="button" id="newProfile">New</button>
+      <button type="button" id="themeToggle" class="theme-switch no-print" role="switch" aria-checked="false" aria-label="Dark mode" title="Switch to dark mode">
+        <span class="knob" aria-hidden="true"></span>
+        <svg class="ts-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>
+        <svg class="ts-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
     </div>
-    <button type="button" id="themeToggle" class="theme-toggle no-print" aria-pressed="false">
-      <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>
-      <span class="theme-label">Dark mode</span>
-    </button>
   </div>
 </header>
 
@@ -1149,7 +1149,7 @@ function apply(o) {
 function save() { lsSet(LS_CUR, collect()); }
 function refreshProfiles(selected = "") {
   const p = lsGet(LS_PROFILES, {});
-  $("#profileSelect").innerHTML = '<option value="">Saved children…</option>' + Object.keys(p).sort().map((n) => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+  $("#profileSelect").innerHTML = '<option value="">Children…</option>' + Object.keys(p).sort().map((n) => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
 }
 $("#saveProfile").onclick = () => {
   const n = val("childName") || prompt("Name for this profile?"); if (!n) return;
@@ -1184,9 +1184,8 @@ $("#decodeVin").onclick = decodeVin;
   const current = () => root.getAttribute("data-theme") || (sys.matches ? "dark" : "light");
   const show = () => {
     const dark = current() === "dark";
-    btn.setAttribute("aria-pressed", String(dark));
-    btn.querySelector(".theme-label").textContent = dark ? "Light mode" : "Dark mode";
-    btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    btn.setAttribute("aria-checked", String(dark)); // screen readers: "Dark mode, switch, on/off"
+    btn.title = dark ? "Switch to light mode" : "Switch to dark mode";
     document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#0c3550" : "#0f5c8c");
   };
   btn.addEventListener("click", () => {
