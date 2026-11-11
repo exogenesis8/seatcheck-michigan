@@ -22,6 +22,7 @@ Students use it in a web browser on a phone or laptop. There is nothing to insta
 | Folder | What it is | Who uses it |
 |---|---|---|
 | `Student-Website/` | The app, ready to put online | You upload it once; students open the link |
+| `QR-Codes/` | QR codes that open the student website, ready for slides or printed handouts | Your slides and handouts |
 | `Standalone-File/` | The same app as a single file | Laptops with no website; a backup if the internet is down |
 | `Full-Project/` | Everything: source, recall-data updater, and the AI research version | You, for updates and the AI demo |
 
@@ -37,7 +38,8 @@ Students get one link (or a QR code on your slide) that works on any phone or la
 2. Drag the **`Student-Website`** folder onto the page.
 3. Netlify gives you a link like `https://something-random.netlify.app`. You can rename it under **Site configuration → Change site name**, for example `seatcheck-michigan`.
 4. Open the link on your phone to confirm it works.
-5. Make a QR code for your slides. Any free QR code generator works, or use your phone's Share menu.
+5. Make a QR code for your slides. The `QR-Codes` folder has one for the main SeatCheck site. For your own site, run
+   `.venv/bin/python tools/make_qr.py YOUR-LINK` in the `Full-Project` folder (after the setup in section 5), or use any free QR code generator.
 
 **Alternative: GitHub Pages (free).** The project already includes a `docs/` folder built for GitHub Pages.
 Put the `Full-Project` folder in a public GitHub repository, then go to **Settings → Pages**, set **Source** to

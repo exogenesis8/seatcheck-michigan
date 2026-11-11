@@ -23,7 +23,7 @@ PKG = "SeatCheck-Michigan-Instructor-Package"
 # Files that make up the full project inside the package (paths relative to ROOT).
 PROJECT_FILES = [
     "index.html", "data/carseat-recalls.js", "agent.py", "server.py", "requirements.txt",
-    "README.md", "INSTRUCTOR-GUIDE.md", "tools/build.py", "tools/update_recalls.py", ".gitignore",
+    "README.md", "INSTRUCTOR-GUIDE.md", "tools/build.py", "tools/update_recalls.py", "tools/make_qr.py", ".gitignore",
     "docs/index.html", "docs/.nojekyll",
 ]
 ENV_TEMPLATE = """# Paste your Anthropic API key after the = sign, save, then restart the server.
@@ -63,6 +63,8 @@ def main():
         z.write(ROOT / "INSTRUCTOR-GUIDE.md", f"{PKG}/START-HERE.md")
         z.writestr(f"{PKG}/Student-Website/index.html", page)
         z.writestr(f"{PKG}/Standalone-File/SeatCheck-Michigan.html", page)
+        for qr in sorted((ROOT / "handouts").glob("*.png")):  # made by tools/make_qr.py
+            z.write(qr, f"{PKG}/QR-Codes/{qr.name}")
         for rel in PROJECT_FILES:
             z.write(ROOT / rel, f"{PKG}/Full-Project/{rel}")
         z.writestr(f"{PKG}/Full-Project/.env", ENV_TEMPLATE)  # template only, never the real key
