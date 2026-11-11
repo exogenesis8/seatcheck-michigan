@@ -75,6 +75,9 @@ footer{color:var(--muted);font-size:12px;padding:0 16px 40px}
 .profiles{display:flex;gap:8px;align-items:center;margin-left:auto}
 .profiles select{width:auto;min-width:160px;background:#fff;color:#0f3d5c;border-color:#fff}
 .profiles button{background:#fff;color:#0f3d5c;border-color:#fff}
+.no-recall p{margin:6px 0}
+.no-recall ul,.no-recall ol{margin:4px 0 8px;padding-left:20px}
+.vin{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px}
 button.suggest{padding:4px 10px;margin:6px 6px 0 0}
 .evidence{font-size:13px;padding:8px 10px;border-radius:8px;margin:8px 0;background:var(--info-bg);border:1px solid var(--line)}
 .evidence.ok{background:var(--ok-bg);border-color:var(--ok)}
@@ -510,6 +513,50 @@ function recallCard(c, extra = "", open = false, entry = null) {
     ${officialLink(c.campaign)}
   </details>`;
 }
+/* ---------------- "no recall found": show exactly what was checked + official double-checks ---------------- */
+function nearMissReason(e) {
+  const p = e.best.p;
+  if (e.afterFiled) return `your seat was made after this recall was filed (${fmtIso(e.c.reported)})`;
+  return `it covers ${p.model} seats made ${fmtIso(p.mfgStart)} to ${fmtIso(p.mfgEnd)}; yours was made ${fmtIso(val("mfgDate"))}`;
+}
+function seatCheckedLine() {
+  const no = val("seatModelNo"), mfg = val("mfgDate");
+  return `${[val("seatBrand"), val("seatModel")].filter(Boolean).join(" ")}${no ? `, model number ${no}` : ""}${mfg ? `, made ${fmtIso(mfg)}` : ""}`;
+}
+function manufacturerLink() {
+  const brand = val("seatBrand"), site = BRAND_SITES[brand.toUpperCase()];
+  return site
+    ? `<a href="${esc(site)}" target="_blank" rel="noopener">${esc(titleCase(brand.toUpperCase()))}'s website ↗</a> (look for "Recalls" or "Safety notices")`
+    : `<a href="${esc(g(`${brand} car seat recall lookup serial number`))}" target="_blank" rel="noopener">${esc(brand)}'s recall page ↗</a>`;
+}
+function seatDoubleChecks() {
+  return `<ol class="steps">
+    <li><b>Manufacturer (the final word for your exact seat):</b> on ${manufacturerLink()}, enter the model number and date of manufacture or serial number from the seat's label.</li>
+    <li><b>NHTSA:</b> on <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls ↗</a>, choose <b>Car Seat</b>, then pick ${esc(val("seatBrand"))} and ${esc(val("seatModel") || "your model")}.</li>
+    <li><b>Stay covered:</b> register the seat with the manufacturer so you hear about future recalls.</li>
+  </ol>`;
+}
+function noRecallCard(r) {
+  const cleared = r.likely.filter((e) => e.dateIn === false);
+  const tips = [];
+  if (!val("seatModelNo")) tips.push("Adding the model number from the label makes this check more precise.");
+  if (!val("mfgDate")) tips.push("Adding the date of manufacture lets the app rule recalls in or out by date.");
+  return `<div class="item ok no-recall"><b>✓ No recall found for this seat in NHTSA's records</b>
+    <p><b>What was checked:</b> ${esc(seatCheckedLine())}, compared against all ${RECALLS.length} NHTSA car seat recalls since 2010
+      (recall list refreshed from NHTSA on ${esc(fmtIso(window.CARSEAT_RECALLS_UPDATED || ""))}; checked ${esc(fmtDateTime(r.checkedAt))}).</p>
+    ${cleared.length ? `<p><b>Close matches that were ruled out:</b></p><ul>${cleared.map((e) => `<li>${esc(e.c.campaign)} (${esc(e.c.component.toLowerCase())}): ruled out because ${esc(nearMissReason(e))}. <a href="${nhtsaUrl(e.c.campaign)}" target="_blank" rel="noopener">Official record ↗</a></li>`).join("")}</ul>` : ""}
+    ${r.brandHits.length ? `<p>Also checked ${r.brandHits.length} other ${esc(val("seatBrand"))} recall${r.brandHits.length > 1 ? "s" : ""} for different models (listed below).</p>` : ""}
+    ${tips.length ? `<p class="meta">${esc(tips.join(" "))}</p>` : ""}
+    <p><b>To confirm officially:</b></p>${seatDoubleChecks()}
+    <p class="meta">"No recall found" means NHTSA has no recall on record for what was entered. It doesn't cover future recalls or a seat that's been in a crash or is past its expiration date.</p>
+  </div>`;
+}
+function vinDoubleCheck() {
+  const vin = val("vin").toUpperCase();
+  return `<p><b>To confirm for your exact car:</b> on <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls ↗</a>, enter the 17-character VIN${vin.length === 17 ? ` (<span class="vin">${esc(vin)}</span>)` : " (on the driver-side dashboard, door jamb, registration or insurance card)"}.
+    NHTSA shows "0 unrepaired recalls associated with this VIN" when that car has no open recalls: either none apply or they've already been repaired. That is NHTSA's official answer for one specific car.</p>`;
+}
+
 let seatRecallState = null;
 function runSeatRecalls() {
   const r = matchSeatRecalls();
@@ -520,15 +567,15 @@ function runSeatRecalls() {
   // Confirm each possible match with NHTSA's live system (at most 10 lookups).
   r.likely.slice(0, 10).forEach((e) => verifyCampaign(e.c.campaign).then(() => { refreshEvidence(e.c.campaign); render(); }));
   let html = "";
-  if (r.likely.length) {
-    html += `<div class="item warn"><b>${r.likely.length} recall${r.likely.length > 1 ? "s" : ""} may match this seat</b>Compare the model number and manufacture date on your label with each recall below.</div>`;
-    html += r.likely.map((e) => recallCard(e.c,
-      e.dateIn === true ? '<span class="pill bad">date in range</span>' : e.afterFiled ? '<span class="pill ok">made after recall</span>' : e.dateIn === false ? '<span class="pill ok">date outside range</span>' : '<span class="pill warn">check date</span>',
-      e.dateIn !== false, e)).join("");
+  const hits = r.likely.filter((e) => e.dateIn !== false);
+  const pill = (e) => e.dateIn === true ? '<span class="pill bad">date in range</span>' : e.afterFiled ? '<span class="pill ok">made after recall</span>' : e.dateIn === false ? '<span class="pill ok">date outside range</span>' : '<span class="pill warn">check date</span>';
+  if (hits.length) {
+    html += `<div class="item warn"><b>${hits.length} recall${hits.length > 1 ? "s" : ""} may match this seat</b>Compare the model number and manufacture date on your label with each recall below.</div>`;
   } else {
-    html += `<div class="item ok"><b>No matching car seat recall found</b>Searched ${RECALLS.length} NHTSA car seat recall campaigns since 2010 for "${esc(val("seatBrand"))} ${esc(val("seatModel"))}". Confirm with the manufacturer using your serial number.</div>`;
+    html += noRecallCard(r);
   }
-  if (r.brandHits.length) html += `<details class="recall"><summary>Other ${esc(val("seatBrand"))} recalls (${r.brandHits.length}) — probably not your model</summary>${r.brandHits.map((e) => recallCard(e.c)).join("")}</details>`;
+  html += r.likely.map((e) => recallCard(e.c, pill(e), e.dateIn !== false, e)).join("");
+  if (r.brandHits.length) html += `<details class="recall"><summary>Other ${esc(val("seatBrand"))} recalls (${r.brandHits.length}) — different models, checked and not matched</summary>${r.brandHits.map((e) => recallCard(e.c)).join("")}</details>`;
   box.innerHTML = html;
   render();
 }
@@ -646,10 +693,11 @@ async function runVehicleRecalls() {
     let html = out.querySelector(".item.ok")?.outerHTML || "";
     const stamp = `<div class="evidence ok"><b>✓ Live from NHTSA</b> on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}: NHTSA's recall system returned ${list.length} recall${list.length === 1 ? "" : "s"} for the ${esc(vehicleRecallState.label)}.${note ? ` ${esc(note)}` : ""}</div>`;
     html += stamp;
-    if (!list.length) html += `<div class="item ok"><b>No NHTSA recalls found for the ${esc(vehicleRecallState.label)}</b>${modelConfirmed ? "NHTSA lists this model and has no recalls on file for it." : "Couldn't double-check the model name with NHTSA, so make sure it's spelled the way it appears on the car or registration."} Use your VIN at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a> or <a href="https://www.checktoprotect.org/" target="_blank" rel="noopener">checktoprotect.org</a> to check your specific car.</div>`;
+    if (!list.length) html += `<div class="item ok"><b>No NHTSA recalls found for the ${esc(vehicleRecallState.label)}</b><p><b>What was checked:</b> the ${esc(vehicleRecallState.label)}, live in NHTSA's recall system on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}. ${modelConfirmed ? "NHTSA's vehicle list confirms this model exists, so this isn't a spelling mismatch." : "Couldn't double-check the model name with NHTSA, so make sure it's spelled the way it appears on the car or registration."}</p>
+      ${vinDoubleCheck()}</div>`;
     else {
       const rel = list.filter((r) => CHILD_RELEVANT.test(r.Component));
-      html += `<div class="item ${rel.length ? "bad" : "warn"}"><b>${list.length} recall${list.length > 1 ? "s" : ""} for this model${rel.length ? `, ${rel.length} affecting seats, belts, anchors or airbags` : ""}</b>This lists recalls for the model, not your car. Enter your VIN at nhtsa.gov/recalls or checktoprotect.org to see whether the repair was already done.</div>`;
+      html += `<div class="item ${rel.length ? "bad" : "warn"}"><b>${list.length} recall${list.length > 1 ? "s" : ""} for this model${rel.length ? `, ${rel.length} affecting seats, belts, anchors or airbags` : ""}</b>This lists recalls for the model, not your car. ${vinDoubleCheck()}</div>`;
       const sorted = [...list].sort((a, b) => (CHILD_RELEVANT.test(b.Component) ? 1 : 0) - (CHILD_RELEVANT.test(a.Component) ? 1 : 0));
       html += sorted.map((r) => `<details class="recall"${CHILD_RELEVANT.test(r.Component) ? " open" : ""}><summary>${esc(r.NHTSACampaignNumber)} · ${esc(r.Component.toLowerCase())}
           ${CHILD_RELEVANT.test(r.Component) ? '<span class="pill bad">seats / belts / airbags</span>' : ""}${r.parkIt ? '<span class="pill bad">do not drive</span>' : ""}${r.parkOutSide ? '<span class="pill bad">park outside</span>' : ""}</summary>
@@ -859,8 +907,8 @@ function render() {
     const lk = seatRecallState.likely;
     const hot = lk.filter((e) => e.dateIn !== false);
     s.push(hot.length ? item("bad", `${hot.length} possible car seat recall${hot.length > 1 ? "s" : ""}`, `${hot.map((e) => esc(e.c.campaign)).join(", ")}: compare your model number and manufacture date with the recall details.`)
-         : lk.length ? item("ok", "Recalls found for similar models, but your manufacture date is outside them", "Double-check with the manufacturer using your serial number.")
-         : item("ok", "No car seat recall found for this model", "Checked NHTSA's car seat recall records."));
+         : lk.length ? item("ok", "No recall found: similar models were recalled, but your manufacture date rules them out", "Confirm with the manufacturer's recall lookup (see Evidence below).")
+         : item("ok", "No car seat recall found for this model", `Checked all ${RECALLS.length} NHTSA car seat recalls since 2010. Confirm with the manufacturer's recall lookup (see Evidence below).`));
   } else if (val("seatBrand")) s.push(item("info", "Car seat recalls not checked yet", 'Press "Check car seat recalls".'));
   if (s.length) out.push(`<h3>Car seat condition</h3>${s.map((x) => x.html).join("")}`);
 
@@ -902,6 +950,16 @@ function render() {
     ev.push(`<li>Vehicle: ${l.length} recall${l.length === 1 ? "" : "s"} for the ${esc(vehicleRecallState.label)}, live from NHTSA on ${esc(fmtDateTime(vehicleRecallState.checkedAt))}${l.length ? ":" : "."}
       ${l.map((r) => `<a href="${nhtsaUrl(r.NHTSACampaignNumber)}" target="_blank" rel="noopener">${esc(r.NHTSACampaignNumber)}</a>`).join(", ")}</li>`);
   }
+  const official = [];
+  if (seatRecallState) {
+    const site = BRAND_SITES[val("seatBrand").toUpperCase()] || g(`${val("seatBrand")} car seat recall lookup serial number`);
+    official.push(`<li>Car seat: the manufacturer's recall lookup (<a href="${esc(site)}" target="_blank" rel="noopener">${esc(val("seatBrand"))}</a>), using the model number and serial number on the label; and NHTSA's car seat search at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a> (choose Car Seat).</li>`);
+  }
+  if (vehicleRecallState && !vehicleRecallState.unresolved) {
+    const vin = val("vin").toUpperCase();
+    official.push(`<li>Vehicle: VIN check at <a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener">nhtsa.gov/recalls</a>${vin.length === 17 ? ` for VIN ${esc(vin)}` : ""}. NHTSA's answer for that exact car, including whether recalls were repaired.</li>`);
+  }
+  if (official.length) ev.push(`<li><b>Official double-checks:</b><ul>${official.join("")}</ul></li>`);
   if (ev.length) out.push(`<h3>Evidence</h3><ul class="evidence-list">${ev.join("")}</ul>
     <p class="hint">A car seat match means the model and manufacture date fall inside the recall. The manufacturer has the final word for a specific seat (by model and serial number). For a vehicle, a VIN check at nhtsa.gov/recalls shows whether that car's repair is still open.</p>`);
 
